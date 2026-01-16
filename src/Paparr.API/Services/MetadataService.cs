@@ -20,7 +20,7 @@ public class MetadataService : IMetadataService
             var book = await EpubReader.ReadBookAsync(filePath);
             
             var title = book.Title ?? "Unknown";
-            var author = string.Join(", ", book.AuthorList ?? Array.Empty<string>()) ?? "Unknown";
+            var author = string.Join(", ", book.AuthorList ?? []) ?? "Unknown";
 
             return (title, author);
         }
