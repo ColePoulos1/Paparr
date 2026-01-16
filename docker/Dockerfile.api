@@ -1,0 +1,38 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+
+WORKDIR /build
+
+# Copy project file
+COPY src/Paparr.API/Paparr.API.csproj ./
+
+# Restore dependencies
+RUN dotnet restore
+
+# Copy source code
+COPY src/Paparr.API/ ./
+
+# Build the application
+RUN dotnet build -c Release
+
+# Publish
+RUN dotnet publish -c Release -o /publish
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+
+WORKDIR /app
+
+# Create directory structure
+RUN mkdir -p /ingest /library
+
+# Copy published application
+COPY --from=build /publish .
+
+# Expose port
+EXPOSE 5000
+
+# Set environment
+ENV ASPNETCORE_URLS=http://+:5000
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+ENTRYPOINT ["dotnet", "Paparr.API.dll"]

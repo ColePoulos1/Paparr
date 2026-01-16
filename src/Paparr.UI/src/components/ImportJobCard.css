@@ -1,0 +1,223 @@
+.job-card {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.job-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.status-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.card-meta {
+  color: #7f8c8d;
+  font-size: 0.85rem;
+}
+
+.card-body {
+  padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-info {
+  margin-bottom: 1.5rem;
+}
+
+.file-info strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #2c3e50;
+}
+
+.file-info p {
+  color: #7f8c8d;
+  word-break: break-word;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.candidates-section {
+  margin-top: 1rem;
+}
+
+.candidates-section h4 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.candidates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.candidate-item {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  transition: all 0.2s ease;
+}
+
+.candidate-item:hover {
+  background-color: #ecf0f1;
+  border-color: #3498db;
+}
+
+.candidate-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.candidate-title {
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  color: #2c3e50;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.candidate-author {
+  color: #7f8c8d;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.candidate-meta {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.source-badge {
+  background-color: #3498db;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.confidence-badge {
+  background-color: #27ae60;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.accept-btn {
+  padding: 0.4rem 0.8rem;
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.accept-btn:hover {
+  background-color: #229954;
+}
+
+.retry-btn {
+  padding: 0.6rem 1.2rem;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  width: 100%;
+  transition: background-color 0.2s ease;
+  margin-top: auto;
+}
+
+.retry-btn:hover {
+  background-color: #c0392b;
+}
+
+.accepted-book {
+  background-color: #d5f4e6;
+  border: 1px solid #27ae60;
+  border-radius: 6px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.accepted-book h4 {
+  color: #27ae60;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.book-title {
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 0 0 0.25rem 0;
+}
+
+.book-author {
+  color: #7f8c8d;
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.book-source {
+  background-color: rgba(52, 152, 219, 0.1);
+  color: #3498db;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin: 0;
+  display: inline-block;
+}
+
+@media (max-width: 600px) {
+  .candidate-item {
+    flex-direction: column;
+  }
+
+  .accept-btn {
+    width: 100%;
+  }
+}

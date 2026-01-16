@@ -1,0 +1,24 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY src/Paparr.UI/package.json src/Paparr.UI/package-lock.json* ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy application
+COPY src/Paparr.UI/ ./
+
+# Build
+RUN npm run build
+
+# Serve with lightweight server
+RUN npm install -g serve
+
+EXPOSE 5173
+
+ENV NODE_ENV=production
+
+CMD ["serve", "-s", "dist", "-l", "5173"]
