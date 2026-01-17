@@ -222,7 +222,7 @@ docker-compose logs -f paparr-api
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/src/Paparr.API/bin/Debug/net8.0/Paparr.API.dll",
+            "program": "${workspaceFolder}/src/Paparr.API/bin/Debug/net10.0/Paparr.API.dll",
             "args": [],
             "cwd": "${workspaceFolder}/src/Paparr.API",
             "stopAtEntry": false,

@@ -7,6 +7,10 @@
       "RelativeMoniker": "D:0:0:{06CD31F3-A22C-024C-1C54-6A3D12F3CC78}|Paparr.API.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
+      "AbsoluteMoniker": "D:0:0:{06CD31F3-A22C-024C-1C54-6A3D12F3CC78}|Paparr.API.csproj|c:\\code\\paparr\\src\\paparr.api\\migrations\\20250116000000_initialcreatesnapshot.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{06CD31F3-A22C-024C-1C54-6A3D12F3CC78}|Paparr.API.csproj|solutionrelative:migrations\\20250116000000_initialcreatesnapshot.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{06CD31F3-A22C-024C-1C54-6A3D12F3CC78}|Paparr.API.csproj|c:\\code\\paparr\\src\\paparr.api\\paparr.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
       "RelativeMoniker": "D:0:0:{06CD31F3-A22C-024C-1C54-6A3D12F3CC78}|Paparr.API.csproj|solutionrelative:paparr.api.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     },
@@ -22,8 +26,21 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 1,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "20250116000000_InitialCreateSnapshot.cs",
+              "DocumentMoniker": "C:\\Code\\Paparr\\src\\Paparr.API\\Migrations\\20250116000000_InitialCreateSnapshot.cs",
+              "RelativeDocumentMoniker": "Migrations\\20250116000000_InitialCreateSnapshot.cs",
+              "ToolTip": "C:\\Code\\Paparr\\src\\Paparr.API\\Migrations\\20250116000000_InitialCreateSnapshot.cs",
+              "RelativeToolTip": "Migrations\\20250116000000_InitialCreateSnapshot.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA0AAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-01-16T23:36:06.02Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -32,14 +49,14 @@
               "RelativeDocumentMoniker": "Program.cs",
               "ToolTip": "C:\\Code\\Paparr\\src\\Paparr.API\\Program.cs",
               "RelativeToolTip": "Program.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAmAAAAAAAAAA==",
+              "ViewState": "AgIAACMAAAAAAAAAAAAuwDkAAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-01-16T22:57:16.437Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "MetadataService.cs",
               "DocumentMoniker": "C:\\Code\\Paparr\\src\\Paparr.API\\Services\\MetadataService.cs",
               "RelativeDocumentMoniker": "Services\\MetadataService.cs",
@@ -47,21 +64,19 @@
               "RelativeToolTip": "Services\\MetadataService.cs",
               "ViewState": "AgIAAAQAAAAAAAAAAAAuwBYAAAA/AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-01-16T22:56:50.912Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-16T22:56:50.912Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "Paparr.API",
+              "DocumentIndex": 2,
+              "Title": "Paparr.API.csproj",
               "DocumentMoniker": "C:\\Code\\Paparr\\src\\Paparr.API\\Paparr.API.csproj",
               "RelativeDocumentMoniker": "Paparr.API.csproj",
               "ToolTip": "C:\\Code\\Paparr\\src\\Paparr.API\\Paparr.API.csproj",
               "RelativeToolTip": "Paparr.API.csproj",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000758|",
-              "WhenOpened": "2026-01-16T22:50:26.071Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-01-16T22:50:26.071Z"
             }
           ]
         }
