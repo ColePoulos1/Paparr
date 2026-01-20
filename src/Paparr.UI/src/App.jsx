@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import axios from 'axios'
 import './App.css'
 import ImportQueue from './pages/ImportQueue'
@@ -7,8 +7,9 @@ import ImportHistory from './pages/ImportHistory'
 function App() {
   const [currentPage, setCurrentPage] = useState('queue')
 
+  const apiUrl = import.meta.env.VITE_API_URL || '/api'
   const apiClient = axios.create({
-    baseURL: '/api',
+    baseURL: apiUrl,
   })
 
   return (

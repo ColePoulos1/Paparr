@@ -15,9 +15,9 @@ Paparr is a production-ready, dockerized ebook ingestion service inspired by Rad
 ## Tech Stack
 
 ### Backend
-- **Framework**: ASP.NET Core 8 Web API
-- **Database**: PostgreSQL 16
-- **ORM**: Entity Framework Core 8
+- **Framework**: ASP.NET Core 10 Web API
+- **Database**: PostgreSQL 18.1
+- **ORM**: Entity Framework Core 10
 - **Logging**: Serilog
 - **API Docs**: Swagger/OpenAPI
 
@@ -28,7 +28,7 @@ Paparr is a production-ready, dockerized ebook ingestion service inspired by Rad
 
 ## Quick Start with Docker
 
-`ash
+`
 cd Paparr
 docker-compose up --build
 `
@@ -41,7 +41,7 @@ Access:
 ## Local Development
 
 ### Backend Setup
-`ash
+`
 cd src/Paparr.API
 dotnet restore
 dotnet ef database update
@@ -49,7 +49,7 @@ dotnet run
 `
 
 ### Frontend Setup
-`ash
+`
 cd src/Paparr.UI
 npm install
 npm run dev

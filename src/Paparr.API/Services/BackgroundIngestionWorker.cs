@@ -77,7 +77,7 @@ public class BackgroundIngestionWorker : IBackgroundIngestionWorker
             return;
         }
 
-        var files = Directory.GetFiles(_ingestPath, "*.{epub,pdf}", SearchOption.TopDirectoryOnly)
+        var files = Directory.GetFiles(_ingestPath, "*.{epub,pdf}", SearchOption.AllDirectories)
             .Where(f => f.EndsWith(".epub", StringComparison.OrdinalIgnoreCase) || 
                        f.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
             .ToList();

@@ -3,9 +3,9 @@
 ## Local Development Setup
 
 ### Prerequisites
-- .NET 8 SDK
+- .NET 10 SDK
 - Node.js 20+
-- PostgreSQL 16
+- PostgreSQL 18.1
 - Docker (optional)
 
 ### Database Setup

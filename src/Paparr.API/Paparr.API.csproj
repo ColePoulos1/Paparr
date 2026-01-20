@@ -20,4 +20,8 @@
     <PackageReference Include="PdfSharp" Version="6.2.4" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Migrations\" />
+  </ItemGroup>
+
 </Project>

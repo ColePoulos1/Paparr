@@ -11,8 +11,9 @@ RUN npm ci
 # Copy application
 COPY src/Paparr.UI/ ./
 
-# Build
-RUN npm run build
+# Build with API URL
+ARG VITE_API_URL=http://localhost:5000/api
+RUN VITE_API_URL=$VITE_API_URL npm run build
 
 # Serve with lightweight server
 RUN npm install -g serve
