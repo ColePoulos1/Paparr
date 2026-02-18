@@ -1,0 +1,65 @@
+services:
+  postgres:
+    image: postgres:18.1-alpine
+    container_name: paparr-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: paparr
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - paparr-network
+
+  paparr-api:
+    build:
+      dockerfile: docker/Dockerfile.api
+    container_name: paparr-api
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=paparr;Username=postgres;Password=postgres"
+      IngestPath: "/ingest"
+      LibraryPath: "/library"
+      PollingIntervalSeconds: "30"
+      AllowedOrigins: "http://localhost:5173;http://localhost:3000;http://paparr-ui:5173"
+      ASPNETCORE_ENVIRONMENT: "Production"
+    ports:
+      - "5000:5000"
+    volumes:
+      - ${HOST_INGEST_PATH:-./ingest}:/ingest
+      - ${HOST_LIBRARY_PATH:-./library}:/library
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - paparr-network
+    restart: unless-stopped
+
+  paparr-ui:
+    build:
+      dockerfile: docker/Dockerfile.ui
+      args:
+        VITE_API_URL: "http://localhost:5000/api"
+    container_name: paparr-ui
+    ports:
+      - "5173:5173"
+    depends_on:
+      - paparr-api
+    networks:
+      - paparr-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  ingest:
+  library:
+
+networks:
+  paparr-network:
+    driver: bridge

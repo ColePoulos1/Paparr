@@ -1,0 +1,138 @@
+.import-history {
+  width: 100%;
+  color: var(--text);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.history-header h2 {
+  font-size: 1.8rem;
+  color: var(--text);
+}
+
+.refresh-btn {
+  padding: 0.5rem 1.5rem;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  transition: background-color 0.3s ease;
+  box-shadow: 0 2px 6px rgba(59,130,246,0.12);
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background-color: var(--primary-600);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: rgba(239,68,68,0.12);
+  color: var(--text);
+  padding: 1rem;
+  border-radius: 4px;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(239,68,68,0.18);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--muted);
+}
+
+.empty-state p {
+  font-size: 1.2rem;
+}
+
+.history-table {
+  background-color: var(--muted-surface);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px var(--card-shadow);
+  overflow-x: auto;
+  border: 1px solid rgba(255,255,255,0.03);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--text);
+}
+
+thead {
+  background-color: rgba(255,255,255,0.02);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+
+th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background-color 0.2s ease;
+}
+
+tbody tr:hover {
+  background-color: rgba(255,255,255,0.02);
+}
+
+td {
+  padding: 1rem;
+  color: var(--text);
+}
+
+.title-cell {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.author-cell {
+  color: var(--muted);
+}
+
+.source-cell {
+  font-size: 0.9rem;
+  background-color: rgba(255,255,255,0.02);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  display: inline-block;
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,0.03);
+  margin-top: 0.75rem;
+}
+
+.date-cell {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .history-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  table {
+    font-size: 0.9rem;
+  }
+
+  th,
+  td {
+    padding: 0.75rem;
+  }
+}
