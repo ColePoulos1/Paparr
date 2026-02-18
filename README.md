@@ -1,6 +1,6 @@
 ﻿# Paparr - Self-Hosted Ebook Ingestion Service
 
-Paparr is a dockerized ebook ingestion service inspired by Radarr. It automates the process of organizing ebooks from various sources, extracting metadata, and maintaining a well-organized digital library. This is meant to be hosted on a homelab for personal use. Paparr is most useful running in conjunction with Calibre or [Calibre Web Automated](https://github.com/crocodilestick/Calibre-Web-Automated).
+Paparr is a dockerized ebook ingestion service inspired by Radarr. It automates the process of importing ebooks from various sources, extracting/enriching metadata, and organizing the files into a standard library. It is meant to be hosted on a homelab for personal use. Paparr is most useful running in conjunction with Calibre or [Calibre Web Automated](https://github.com/crocodilestick/Calibre-Web-Automated).
 
 ## Features
 
