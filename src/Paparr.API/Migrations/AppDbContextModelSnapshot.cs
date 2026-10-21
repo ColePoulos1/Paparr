@@ -17,10 +17,30 @@ namespace Paparr.API.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.2")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("Paparr.API.Domain.AuthSession", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<byte[]>("Ticket")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.ToTable("AuthSessions");
+                });
 
             modelBuilder.Entity("Paparr.API.Domain.Book", b =>
                 {
@@ -47,6 +67,16 @@ namespace Paparr.API.Migrations
                     b.Property<DateTime>("ImportedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("IntegrityCheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IntegrityMessage")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IntegrityStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasColumnType("text");
@@ -60,10 +90,12 @@ namespace Paparr.API.Migrations
                     b.HasIndex("ImportJobId")
                         .IsUnique();
 
+                    b.HasIndex("IntegrityStatus");
+
                     b.ToTable("Books");
                 });
 
-            modelBuilder.Entity("Paparr.API.Domain.ImportJob", b =>
+            modelBuilder.Entity("Paparr.API.Domain.ImportEvent", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
@@ -74,6 +106,50 @@ namespace Paparr.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<long>("ImportJobId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportJobId");
+
+                    b.ToTable("ImportEvents");
+                });
+
+            modelBuilder.Entity("Paparr.API.Domain.ImportJob", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CleanupAfter")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CleanupAttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CleanupError")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CleanupStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DestinationPath")
+                        .HasColumnType("text");
+
                     b.Property<string>("FileHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -81,6 +157,19 @@ namespace Paparr.API.Migrations
                     b.Property<string>("FilePath")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("LeaseExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("SelectedCandidateId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -91,7 +180,75 @@ namespace Paparr.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FileHash")
+                        .IsUnique();
+
+                    b.HasIndex("CleanupStatus", "CleanupAfter");
+
+                    b.HasIndex("Status", "CreatedAt");
+
                     b.ToTable("ImportJobs");
+                });
+
+            modelBuilder.Entity("Paparr.API.Domain.LibraryAudit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("ChangedBooks")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<long>("LastBookId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LeaseExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<long>("MaximumBookId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("MissingBooks")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProcessedBooks")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TotalBooks")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UnavailableBooks")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("VerifiedBooks")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = TRUE");
+
+                    b.ToTable("LibraryAudits");
                 });
 
             modelBuilder.Entity("Paparr.API.Domain.MetadataCandidate", b =>
@@ -111,6 +268,10 @@ namespace Paparr.API.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Evidence")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("ExternalId")
                         .IsRequired()
@@ -144,6 +305,15 @@ namespace Paparr.API.Migrations
                     b.Navigation("ImportJob");
                 });
 
+            modelBuilder.Entity("Paparr.API.Domain.ImportEvent", b =>
+                {
+                    b.HasOne("Paparr.API.Domain.ImportJob", null)
+                        .WithMany("Events")
+                        .HasForeignKey("ImportJobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Paparr.API.Domain.MetadataCandidate", b =>
                 {
                     b.HasOne("Paparr.API.Domain.ImportJob", "ImportJob")
@@ -160,6 +330,8 @@ namespace Paparr.API.Migrations
                     b.Navigation("AcceptedBook");
 
                     b.Navigation("Candidates");
+
+                    b.Navigation("Events");
                 });
 #pragma warning restore 612, 618
         }

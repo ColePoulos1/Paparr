@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Paparr.API/Paparr.API.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Paparr.IntegrationTests/Paparr.IntegrationTests.csproj" />
+    <Project Path="tests/Paparr.UnitTests/Paparr.UnitTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Paparr.Benchmarks/Paparr.Benchmarks.csproj" />
+  </Folder>
+</Solution>

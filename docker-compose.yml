@@ -1,65 +1,62 @@
 services:
   postgres:
-    image: postgres:18.1-alpine
-    container_name: paparr-postgres
+    image: postgres:18.6-alpine
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: paparr
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: paparr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-paparr}
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U paparr -d \"$${POSTGRES_DB}\""]
+      interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - paparr-network
+      retries: 10
+    restart: unless-stopped
 
   paparr-api:
     build:
+      context: .
       dockerfile: docker/Dockerfile.api
-    container_name: paparr-api
     environment:
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=paparr;Username=postgres;Password=postgres"
-      IngestPath: "/ingest"
-      LibraryPath: "/library"
-      PollingIntervalSeconds: "30"
-      AllowedOrigins: "http://localhost:5173;http://localhost:3000;http://paparr-ui:5173"
-      ASPNETCORE_ENVIRONMENT: "Production"
-    ports:
-      - "5000:5000"
+      Database__Host: postgres
+      Database__Name: ${POSTGRES_DB:-paparr}
+      Database__User: paparr
+      Database__Password: ${POSTGRES_PASSWORD}
+      AllowedHosts: "${ALLOWED_HOSTS:-localhost;127.0.0.1;[::1]}"
+      Authentication__Enabled: "${AUTHENTICATION_ENABLED:-true}"
+      Authentication__PasswordHash: "${PAPARR_PASSWORD_HASH:-}"
+      Authentication__SecureCookies: "${SECURE_COOKIES:-false}"
+      Authentication__KeysPath: /data/keys
+      ReverseProxy__TrustedNetworks: "${TRUSTED_PROXY_NETWORKS:-}"
+      IngestPath: /ingest
+      LibraryPath: /library
+      DeleteSourceAfterImport: "${DELETE_SOURCE_AFTER_IMPORT:-false}"
+      MetadataProvidersEnabled: "${METADATA_PROVIDERS_ENABLED:-true}"
     volumes:
       - ${HOST_INGEST_PATH:-./ingest}:/ingest
       - ${HOST_LIBRARY_PATH:-./library}:/library
+      - auth-data:/data
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - paparr-network
     restart: unless-stopped
 
   paparr-ui:
     build:
+      context: .
       dockerfile: docker/Dockerfile.ui
-      args:
-        VITE_API_URL: "http://localhost:5000/api"
-    container_name: paparr-ui
     ports:
-      - "5173:5173"
+      - "${BIND_ADDRESS:-127.0.0.1}:${PAPARR_PORT:-5173}:8080"
     depends_on:
       - paparr-api
-    networks:
-      - paparr-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
 volumes:
   postgres-data:
-  ingest:
-  library:
-
-networks:
-  paparr-network:
-    driver: bridge
+  auth-data:

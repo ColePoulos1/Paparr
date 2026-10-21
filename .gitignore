@@ -58,8 +58,16 @@ node_modules/
 
 .vs/
 .vscode/
-.github/
 
 .env
 
-*GUIDE.md
+dist/
+coverage/
+playwright-report/
+test-results/
+ingest/
+library/
+.tools/
+.paparr/
+*.user
+*.tsbuildinfo

@@ -1,0 +1,26 @@
+# Discovery hashing microbenchmark
+
+`tools/Paparr.Benchmarks` compares repeated discovery hashing with and without the stable-file hash cache. It creates synthetic files in a unique temporary directory, performs an isolated hash warmup, measures uncached hashing first and cached hashing second, and emits JSON with elapsed time, actual hash calls, bytes hashed, runtime details, and matching aggregate hashes. It deletes only the temporary directory it created. An explicitly requested `--output` file is created without overwriting an existing file.
+
+Run it from the repository root in Release configuration:
+
+```powershell
+dotnet run --configuration Release --project tools/Paparr.Benchmarks -- --files 32 --size-mib 1 --passes 6
+dotnet run --configuration Release --project tools/Paparr.Benchmarks -- --files 64 --size-mib 4 --passes 8 --output .\hash-results.json
+```
+
+Options are bounded: `--files` 1–256, `--size-mib` 1–16, and `--passes` 2–30. Total synthetic file content cannot exceed 512 MiB. Defaults are 32 files, 1 MiB each, and 6 passes.
+
+This is a local microbenchmark of `FileHashService` and `StableFileHashCache`, not a production throughput claim. It does not model database queries, directory traversal, simultaneous workloads, or storage contention. Operating-system filesystem caches, runtime warmup, and device state affect timings; compare repeated runs on the same machine and use hash-call/byte counts as the more stable signal. The cache's five-minute revalidation interval is not exercised during this short harness run.
+
+## Recorded run: October 21, 2026
+
+Release build, .NET 10.0.9, Windows x64, eight logical processors. Default workload: 32 files of 1 MiB, six passes, cold application cache on the first cached pass.
+
+| Measurement | Uncached | Cached |
+| --- | ---: | ---: |
+| Hash calls | 192 | 32 |
+| Bytes hashed | 192 MiB | 32 MiB |
+| Elapsed | 2,066 ms | 427 ms |
+
+Both runs produced the same aggregate hash. The stable result is 83% fewer bytes read for this unchanged-file workload. The elapsed times are one local observation; the uncached run executes first and both runs benefit from operating-system caching. These results do not measure complete ingestion or network storage performance.

@@ -1,177 +1,77 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Paparr.API.Data;
 using Paparr.API.Domain;
-using Microsoft.EntityFrameworkCore;
 
 namespace Paparr.API.Services;
 
-public class BackgroundIngestionWorker : IBackgroundIngestionWorker
+public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOptions<IngestionOptions> options,
+    TimeProvider clock, ILogger<BackgroundIngestionWorker> logger) : BackgroundService
 {
-    private readonly IServiceProvider _serviceProvider;
-    private readonly ILogger<BackgroundIngestionWorker> _logger;
-    private readonly string _ingestPath;
-    private readonly TimeSpan _pollInterval;
-    private CancellationTokenSource? _cancellationTokenSource;
-    private Task? _workerTask;
-
-    public BackgroundIngestionWorker(
-        IServiceProvider serviceProvider,
-        ILogger<BackgroundIngestionWorker> logger,
-        IConfiguration config)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _serviceProvider = serviceProvider;
-        _logger = logger;
-        _ingestPath = config["IngestPath"] ?? "/ingest";
-        _pollInterval = TimeSpan.FromSeconds(int.Parse(config["PollingIntervalSeconds"] ?? "30"));
-    }
-
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _workerTask = RunWorkerAsync(_cancellationTokenSource.Token);
-        
-        _logger.LogInformation("Background ingestion worker started. Polling {Path} every {Interval}s", 
-            _ingestPath, _pollInterval.TotalSeconds);
-
-        await Task.CompletedTask;
-    }
-
-    public async Task StopAsync()
-    {
-        _cancellationTokenSource?.Cancel();
-        if (_workerTask != null)
+        if (!options.Value.WorkerEnabled) return;
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(options.Value.PollingIntervalSeconds), clock);
+        do
         {
-            await _workerTask;
-        }
-        _logger.LogInformation("Background ingestion worker stopped");
+            try { await RunCycleAsync(stoppingToken); }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
+            catch (Exception ex) { logger.LogError(ex, "Ingestion cycle failed"); }
+        } while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private async Task RunWorkerAsync(CancellationToken cancellationToken)
+    public async Task RunCycleAsync(CancellationToken ct)
     {
-        try
+        // Queue progress must not depend on the watch directory being available.
+        using (var scope = scopes.CreateScope())
         {
-            while (!cancellationToken.IsCancellationRequested)
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var now = clock.GetUtcNow().UtcDateTime;
+            var ids = await db.ImportJobs.AsNoTracking().Where(j => j.Status == ImportStatus.Pending ||
+                ((j.Status == ImportStatus.Processing || j.Status == ImportStatus.Publishing) &&
+                 (j.LeaseExpiresAt == null || j.LeaseExpiresAt <= now)))
+                .OrderBy(j => j.CreatedAt).Select(j => j.Id).Take(20).ToListAsync(ct);
+            foreach (var id in ids)
             {
+                using var jobScope = scopes.CreateScope();
+                var jobDb = jobScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var job = await jobDb.ImportJobs.Include(j => j.Candidates).FirstAsync(j => j.Id == id, ct);
+                var ingestion = jobScope.ServiceProvider.GetRequiredService<IEbookIngestionService>();
                 try
                 {
-                    await ProcessIngestDirectoryAsync(cancellationToken);
+                    if (job.Status == ImportStatus.Pending) await ingestion.ProcessImportJobAsync(job, ct);
+                    else await ingestion.RecoverAsync(job, ct);
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in background worker poll cycle");
-                }
-
-                await Task.Delay(_pollInterval, cancellationToken);
+                catch (DbUpdateConcurrencyException) { logger.LogDebug("Import {ImportId} was claimed by another request", id); }
+                catch (ImportConflictException ex) { logger.LogWarning("Import {ImportId}: {Reason}", id, ex.Message); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex) { logger.LogError(ex, "Import {ImportId} failed; persisted work will be recovered", id); }
             }
         }
-        catch (OperationCanceledException)
+        using (var scope = scopes.CreateScope())
         {
-            _logger.LogInformation("Background worker cancellation requested");
-        }
-    }
-
-    private async Task ProcessIngestDirectoryAsync(CancellationToken cancellationToken)
-    {
-        // Resolve ingest path to an absolute path
-        string resolvedPath;
-        try
-        {
-            if (Path.IsPathRooted(_ingestPath))
-                resolvedPath = Path.GetFullPath(_ingestPath);
-            else
-                resolvedPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, _ingestPath));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to resolve ingest path '{Path}'", _ingestPath);
-            return;
-        }
-
-        _logger.LogDebug("Resolved ingest path: {ResolvedPath} (original: {Original})", resolvedPath, _ingestPath);
-
-        if (!Directory.Exists(resolvedPath))
-        {
-            Directory.CreateDirectory(resolvedPath);
-            _logger.LogInformation("Created ingest directory at {Path}", resolvedPath);
-            return;
-        }
-
-        // Enumerate all files and filter by extension
-        var allowedExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".epub", ".pdf" };
-        var files = Directory.EnumerateFiles(resolvedPath, "*", SearchOption.AllDirectories)
-            .Where(f => allowedExts.Contains(Path.GetExtension(f)))
-            .ToList();
-
-        _logger.LogInformation("Found {Count} files to process in {Path}", files.Count, resolvedPath);
-
-        if (files.Count == 0)
-        {
-            return;
-        }
-
-        using var scope = _serviceProvider.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var hashService = scope.ServiceProvider.GetRequiredService<IFileHashService>();
-        var ingestionService = scope.ServiceProvider.GetRequiredService<IEbookIngestionService>();
-
-        foreach (var filePath in files)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                break;
-
-            try
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var now = clock.GetUtcNow().UtcDateTime;
+            var ids = await db.ImportJobs.AsNoTracking().Where(j => j.Status == ImportStatus.Completed &&
+                j.CleanupStatus == SourceCleanupStatus.Pending && (j.CleanupAfter == null || j.CleanupAfter <= now))
+                .OrderBy(j => j.CleanupAfter).Select(j => j.Id).Take(20).ToListAsync(ct);
+            foreach (var id in ids)
             {
-                // Check if already imported
-                var fileHash = await hashService.ComputeHashAsync(filePath);
-                var job = await db.ImportJobs
-                    .FirstOrDefaultAsync(j => j.FileHash == fileHash, cancellationToken);
-
-                // Delete file and ignore if already completed
-                if (job?.Status == ImportStatus.Completed)
-                {
-                    _logger.LogWarning("File {Path} already imported (hash: {Hash})", filePath, fileHash);
-                    File.Delete(filePath);
-                    continue;
-                }
-                // Retry failed import jobs
-                else if (job?.Status == ImportStatus.Failed)
-                {
-                    job.Status = ImportStatus.Pending;
-                    job.FilePath = filePath;
-                    job.UpdatedAt = DateTime.UtcNow;
-                    db.ImportJobs.Update(job);
-                }
-                // Do nothing for Pending / Processing / Awaiting import jobs
-                else if (job != null)
-                {
-                    continue;
-                }
-                // Create new job if none existing
-                else
-                {
-                    job = new ImportJob
-                    {
-                        FilePath = filePath,
-                        FileHash = fileHash,
-                        Status = ImportStatus.Pending,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-
-                    db.ImportJobs.Add(job);
-                }
-                    
-                await db.SaveChangesAsync(cancellationToken);
-
-                // Process import job
-                await ingestionService.ProcessImportJobAsync(job);
-
-                _logger.LogInformation("Processed file: {FileName} (JobId: {JobId})", 
-                    Path.GetFileName(filePath), job.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing file {Path}", filePath);
+                using var cleanupScope = scopes.CreateScope();
+                var cleanupDb = cleanupScope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var job = await cleanupDb.ImportJobs.SingleAsync(j => j.Id == id, ct);
+                try { await cleanupScope.ServiceProvider.GetRequiredService<SourceCleanupService>().TryCleanupAsync(job, ct); }
+                catch (DbUpdateConcurrencyException) { logger.LogDebug("Source cleanup {ImportId} was claimed elsewhere", id); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+                catch (Exception ex) { logger.LogError(ex, "Source cleanup {ImportId} will be recovered", id); }
             }
         }
+        using var scanScope = scopes.CreateScope();
+        try { await scanScope.ServiceProvider.GetRequiredService<LibraryAuditService>().RunBatchAsync(ct); }
+        catch (DbUpdateConcurrencyException) { logger.LogDebug("Library scan was claimed by another worker"); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) { logger.LogError(ex, "Library scan will resume after its lease expires"); }
+        using var discoveryScope = scopes.CreateScope();
+        await discoveryScope.ServiceProvider.GetRequiredService<ImportScanner>().ScanAsync(ct);
     }
 }

@@ -1,92 +1,41 @@
-using VersOne.Epub;
 using System.IO.Compression;
-using System.Xml.XPath;
+using UglyToad.PdfPig;
+using VersOne.Epub;
 
 namespace Paparr.API.Services;
 
-public class MetadataService : IMetadataService
+public sealed class MetadataService : IMetadataService
 {
-    private readonly ILogger<MetadataService> _logger;
-
-    public MetadataService(ILogger<MetadataService> logger)
+    public async Task<(string Title, string Author)?> ExtractEpubMetadataAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        _logger = logger;
+        cancellationToken.ThrowIfCancellationRequested();
+        using (var archive = ZipFile.OpenRead(filePath))
+        {
+            if (archive.Entries.Count > 10000 || archive.Entries.Sum(e => e.Length) > 200L * 1024 * 1024)
+                throw new InvalidDataException("The EPUB exceeds the archive limits.");
+        }
+        var book = await EpubReader.ReadBookAsync(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Complete(book.Title, string.Join(", ", book.AuthorList ?? []));
     }
 
-    public async Task<(string Title, string Author)?> ExtractEpubMetadataAsync(string filePath)
+    public Task<(string Title, string Author)?> ExtractPdfMetadataAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var book = await EpubReader.ReadBookAsync(filePath);
-            
-            var title = book.Title ?? "Unknown";
-            var author = string.Join(", ", book.AuthorList ?? []) ?? "Unknown";
-
-            return (title, author);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to extract EPUB metadata from {FilePath}", filePath);
-            return null;
-        }
-    }
-
-    public async Task<(string Title, string Author)?> ExtractPdfMetadataAsync(string filePath)
-    {
-        try
-        {
-            // Basic PDF metadata extraction using System.IO.Compression
-            // In production, consider using more robust libraries like PdfSharpCore
-            using var zipArchive = new ZipArchive(File.OpenRead(filePath), ZipArchiveMode.Read, true);
-            
-            var metadataEntry = zipArchive.Entries.FirstOrDefault(e => e.Name == "metadata.xml");
-            
-            if (metadataEntry != null)
-            {
-                using var stream = metadataEntry.Open();
-                using var reader = new StreamReader(stream);
-                var content = await reader.ReadToEndAsync();
-                
-                // Simple regex extraction for title and author from metadata XML
-                var titleMatch = System.Text.RegularExpressions.Regex.Match(content, @"<dc:title>([^<]+)</dc:title>");
-                var authorMatch = System.Text.RegularExpressions.Regex.Match(content, @"<dc:creator>([^<]+)</dc:creator>");
-                
-                if (titleMatch.Success && authorMatch.Success)
-                {
-                    return (titleMatch.Groups[1].Value, authorMatch.Groups[1].Value);
-                }
-            }
-
-            _logger.LogDebug("No metadata found in PDF {FilePath}", filePath);
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to extract PDF metadata from {FilePath}", filePath);
-            return null;
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        using var document = PdfDocument.Open(filePath);
+        return Task.FromResult(Complete(document.Information.Title, document.Information.Author));
     }
 
     public (string Title, string Author)? ParseFilename(string filename)
     {
-        try
-        {
-            var nameWithoutExt = Path.GetFileNameWithoutExtension(filename);
-            var parts = nameWithoutExt.Split([" - ", "-"], StringSplitOptions.RemoveEmptyEntries);
+        var stem = Path.GetFileNameWithoutExtension(filename);
+        var separator = stem.LastIndexOf(" - ", StringComparison.Ordinal);
+        return separator <= 0 ? null : Complete(stem[..separator], stem[(separator + 3)..]);
+    }
 
-            if (parts.Length >= 2)
-            {
-                var title = parts[0].Trim();
-                var author = string.Join("-", parts.Skip(1)).Trim();
-                return (title, author);
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse filename {Filename}", filename);
-            return null;
-        }
+    private static (string Title, string Author)? Complete(string? title, string? author)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(author)) return null;
+        return (title.Trim(), author.Trim());
     }
 }

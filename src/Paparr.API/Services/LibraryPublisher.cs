@@ -1,0 +1,69 @@
+using Microsoft.Extensions.Options;
+
+namespace Paparr.API.Services;
+
+public interface ILibraryPublisher
+{
+    Task PublishAsync(string source, string destination, string hash, CancellationToken cancellationToken);
+    Task CleanupSourceAsync(string source, string destination, string hash, CancellationToken cancellationToken);
+}
+
+public sealed class LibraryPublisher(IFileHashService hashes, IOptions<IngestionOptions> options) : ILibraryPublisher
+{
+    public async Task PublishAsync(string source, string destination, string hash, CancellationToken cancellationToken)
+    {
+        LibraryPaths.EnsureSafe(options.Value.LibraryPath, destination);
+        if (File.Exists(destination))
+        {
+            await VerifyAsync(destination, hash, cancellationToken);
+            return;
+        }
+
+        LibraryPaths.EnsureSafe(options.Value.IngestPath, source);
+        var info = new FileInfo(source);
+        if (!info.Exists) throw new IOException("The source file is missing. Restore it before retrying.");
+        if (info.Length > options.Value.MaxFileSizeMb * 1024L * 1024)
+            throw new IOException("The source file exceeds the configured size limit.");
+
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        LibraryPaths.EnsureSafe(options.Value.LibraryPath, destination);
+        var staging = destination + "." + Guid.NewGuid().ToString("N") + ".partial";
+        try
+        {
+            await using (var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true))
+            await using (var output = new FileStream(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
+            {
+                await input.CopyToAsync(output, cancellationToken);
+                await output.FlushAsync(cancellationToken);
+                output.Flush(flushToDisk: true);
+            }
+            await VerifyAsync(staging, hash, cancellationToken);
+            LibraryPaths.EnsureSafe(options.Value.LibraryPath, destination);
+            try { File.Move(staging, destination, overwrite: false); }
+            catch (IOException) when (File.Exists(destination))
+            {
+                await VerifyAsync(destination, hash, cancellationToken);
+            }
+        }
+        finally
+        {
+            if (File.Exists(staging)) File.Delete(staging);
+        }
+    }
+
+    public async Task CleanupSourceAsync(string source, string destination, string hash, CancellationToken cancellationToken)
+    {
+        if (!options.Value.DeleteSourceAfterImport || !File.Exists(source)) return;
+        LibraryPaths.EnsureSafe(options.Value.IngestPath, source);
+        LibraryPaths.EnsureSafe(options.Value.LibraryPath, destination);
+        await VerifyAsync(destination, hash, cancellationToken);
+        await VerifyAsync(source, hash, cancellationToken);
+        File.Delete(source);
+    }
+
+    private async Task VerifyAsync(string path, string hash, CancellationToken cancellationToken)
+    {
+        if (!string.Equals(await hashes.ComputeHashAsync(path, cancellationToken), hash, StringComparison.OrdinalIgnoreCase))
+            throw new IOException("File content changed or the destination contains a different book. No file was replaced.");
+    }
+}

@@ -1,204 +1,168 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Paparr.API.Data;
 using Paparr.API.Domain;
-using Microsoft.EntityFrameworkCore;
 
 namespace Paparr.API.Services;
 
-public class EbookIngestionService : IEbookIngestionService
+public sealed class EbookIngestionService(AppDbContext db, IMetadataService metadata,
+    IMetadataEnricherService providers, ILibraryPublisher publisher, IFileHashService hashes,
+    IOptions<IngestionOptions> options, TimeProvider clock, ILogger<EbookIngestionService> logger,
+    SourceCleanupService cleanup) : IEbookIngestionService
 {
-    private readonly AppDbContext _db;
-    private readonly IMetadataService _metadataService;
-    private readonly IMetadataEnricherService _enricherService;
-    private readonly ILogger<EbookIngestionService> _logger;
-    private readonly string _libraryPath;
-    private readonly string _ingestPath;
+    private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
-    public EbookIngestionService(
-        AppDbContext db,
-        IMetadataService metadataService,
-        IMetadataEnricherService enricherService,
-        ILogger<EbookIngestionService> logger,
-        IConfiguration config)
+    public async Task ProcessImportJobAsync(ImportJob job, CancellationToken cancellationToken = default)
     {
-        _db = db;
-        _metadataService = metadataService;
-        _enricherService = enricherService;
-        _logger = logger;
-        _libraryPath = config["LibraryPath"] ?? "/library";
-        _ingestPath = config["IngestPath"] ?? "/ingest";
-    }
+        if (job.Status != ImportStatus.Pending) return;
+        if (job.AttemptCount >= options.Value.MaxAttempts)
+        {
+            await FailAsync(job, "The attempt limit was reached. Check the file and increase MaxAttempts to retry.", cancellationToken);
+            return;
+        }
+        job.AttemptCount++;
+        job.LeaseExpiresAt = Now.AddMinutes(options.Value.LeaseMinutes);
+        job.LastError = null;
+        job.Status = job.SelectedCandidateId.HasValue ? ImportStatus.Publishing : ImportStatus.Processing;
+        Record(job, $"Attempt {job.AttemptCount} started.");
+        await db.SaveChangesAsync(cancellationToken);
 
-    public async Task ProcessImportJobAsync(ImportJob job)
-    {
+        if (job.SelectedCandidateId.HasValue)
+        {
+            await PublishAsync(job, cancellationToken);
+            return;
+        }
+
         try
         {
-            job.Status = ImportStatus.Processing;
-            job.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
-
-            if (!File.Exists(job.FilePath))
+            LibraryPaths.EnsureSafe(options.Value.IngestPath, job.FilePath);
+            if (new FileInfo(job.FilePath).Length > options.Value.MaxFileSizeMb * 1024L * 1024)
+                throw new InvalidDataException("The file is too large.");
+            if (await hashes.ComputeHashAsync(job.FilePath, cancellationToken) != job.FileHash)
             {
-                _logger.LogError("File not found: {FilePath}", job.FilePath);
-                job.Status = ImportStatus.Failed;
-                job.UpdatedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
+                await FailAsync(job, "The source changed after discovery. Restore the original file or import the changed copy.", cancellationToken);
                 return;
             }
-
-            var ext = Path.GetExtension(job.FilePath).ToLower();
-
-            // Extract metadata from file
-            (string Title, string Author)? fileMetadata = null;
-            if (ext == ".epub")
+            var embedded = Path.GetExtension(job.FilePath).ToLowerInvariant() switch
             {
-                fileMetadata = await _metadataService.ExtractEpubMetadataAsync(job.FilePath);
-            }
-            else if (ext == ".pdf")
+                ".epub" => await metadata.ExtractEpubMetadataAsync(job.FilePath, cancellationToken),
+                ".pdf" => await metadata.ExtractPdfMetadataAsync(job.FilePath, cancellationToken),
+                _ => throw new InvalidDataException("Unsupported ebook format.")
+            };
+            var extracted = embedded ?? metadata.ParseFilename(Path.GetFileName(job.FilePath));
+            db.MetadataCandidates.RemoveRange(job.Candidates);
+            job.Candidates.Clear();
+            if (extracted is { } book)
             {
-                fileMetadata = await _metadataService.ExtractPdfMetadataAsync(job.FilePath);
-            }
-
-            // Fallback to filename parsing
-            fileMetadata ??= _metadataService.ParseFilename(Path.GetFileName(job.FilePath));
-
-            if (fileMetadata == null)
-            {
-                _logger.LogWarning("Could not extract metadata for {FilePath}", job.FilePath);
-                job.Status = ImportStatus.Failed;
-                job.UpdatedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
-                return;
-            }
-
-            var (title, author) = fileMetadata.Value;
-
-            // Add embedded metadata as candidate
-            var candidates = new List<MetadataCandidate>
-            {
-                new MetadataCandidate
+                job.Candidates.Add(new MetadataCandidate
                 {
-                    Title = title,
-                    Author = author,
-                    Source = "embedded",
+                    Title = book.Title,
+                    Author = book.Author,
+                    Source = embedded.HasValue ? "embedded" : "filename",
                     ExternalId = "",
-                    ConfidenceScore = 85, // High confidence for embedded/parsed metadata
-                    ImportJobId = job.Id,
-                    CreatedAt = DateTime.UtcNow
-                }
-            };
-
-            // Query external APIs
-            var olCandidates = await _enricherService.QueryOpenLibraryAsync(title, author, job.Id);
-            candidates.AddRange(olCandidates);
-
-            var gbCandidates = await _enricherService.QueryGoogleBooksAsync(title, author, job.Id);
-            candidates.AddRange(gbCandidates);
-
-            // Save candidates
-            _db.MetadataCandidates.AddRange(candidates);
-            await _db.SaveChangesAsync();
-
-            // Auto-accept if confidence is high
-            var bestCandidate = candidates.OrderByDescending(c => c.ConfidenceScore).FirstOrDefault();
-            if (bestCandidate?.ConfidenceScore >= 90)
-            {
-                _logger.LogInformation("Auto-accepting high-confidence match: {Title} by {Author} (score: {Score})",
-                    bestCandidate.Title, bestCandidate.Author, bestCandidate.ConfidenceScore);
-                await AcceptCandidateAsync(job, bestCandidate);
+                    ConfidenceScore = embedded.HasValue ? 85 : 60,
+                    Evidence = embedded.HasValue ? "Read from the ebook metadata." : "Parsed from the filename; review before importing.",
+                    CreatedAt = Now
+                });
+                var openLibrary = await providers.QueryOpenLibraryAsync(book.Title, book.Author, job.Id, cancellationToken);
+                var googleBooks = await providers.QueryGoogleBooksAsync(book.Title, book.Author, job.Id, cancellationToken);
+                foreach (var candidate in openLibrary.Concat(googleBooks)) job.Candidates.Add(candidate);
             }
-            else
-            {
-                job.Status = ImportStatus.AwaitingApproval;
-                job.UpdatedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
-                _logger.LogInformation("Import job {JobId} awaiting approval. Best match: {Title} (score: {Score})",
-                    job.Id, bestCandidate?.Title ?? "Unknown", bestCandidate?.ConfidenceScore ?? 0);
-            }
+            job.Status = ImportStatus.AwaitingApproval;
+            job.LeaseExpiresAt = null;
+            Record(job, extracted.HasValue ? "Metadata is ready for review." : "No complete metadata found. Enter a title and author to continue.");
+            await db.SaveChangesAsync(cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException and not DbUpdateException)
         {
-            _logger.LogError(ex, "Error processing import job {JobId}", job.Id);
-            job.Status = ImportStatus.Failed;
-            job.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
+            logger.LogWarning(ex, "Extraction failed for import {ImportId}", job.Id);
+            await FailAsync(job, "The ebook could not be read. Check that the file is complete, supported, and within the size limit.", cancellationToken);
         }
     }
 
-    public async Task AcceptCandidateAsync(ImportJob job, MetadataCandidate candidate)
+    public async Task AcceptCandidateAsync(ImportJob job, MetadataCandidate candidate, CancellationToken cancellationToken = default)
     {
+        if (job.Status == ImportStatus.Completed && job.SelectedCandidateId == candidate.Id) return;
+        if (job.Status != ImportStatus.AwaitingApproval)
+            throw new ImportConflictException("This import is no longer awaiting review. Refresh its current state.");
+        if (candidate.ImportJobId != job.Id)
+            throw new ImportConflictException("The selected metadata does not belong to this import.");
+        job.DestinationPath = LibraryPaths.Destination(options.Value.LibraryPath, candidate.Title, candidate.Author,
+            Path.GetExtension(job.FilePath), job.FileHash);
+        job.SelectedCandidateId = candidate.Id;
+        job.Status = ImportStatus.Publishing;
+        job.LeaseExpiresAt = Now.AddMinutes(options.Value.LeaseMinutes);
+        Record(job, $"Approved metadata from {candidate.Source}.");
+        await db.SaveChangesAsync(cancellationToken);
+        await PublishAsync(job, cancellationToken);
+    }
+
+    public async Task RecoverAsync(ImportJob job, CancellationToken cancellationToken = default)
+    {
+        if (job.Status is not (ImportStatus.Processing or ImportStatus.Publishing) || job.LeaseExpiresAt > Now) return;
+        job.Status = ImportStatus.Pending;
+        job.LeaseExpiresAt = null;
+        Record(job, "Recovered an interrupted attempt.");
+        await db.SaveChangesAsync(cancellationToken);
+        await ProcessImportJobAsync(job, cancellationToken);
+    }
+
+    private async Task PublishAsync(ImportJob job, CancellationToken cancellationToken)
+    {
+        var candidate = job.Candidates.Single(c => c.Id == job.SelectedCandidateId);
         try
         {
-            var ext = Path.GetExtension(job.FilePath);
-
-            // Calibre-compatible structure: /library/Author Name/Book Title/Book Title - Author Name.ext
-            var authorFolder = Path.Combine(_libraryPath, SanitizePath(candidate.Author));
-            var bookFolder = Path.Combine(authorFolder, SanitizePath(candidate.Title));
-
-            Directory.CreateDirectory(bookFolder);
-
-            var destinationPath = Path.Combine(bookFolder, $"{SanitizeFileName(candidate.Title + " - " + candidate.Author)}{ext}");
-
-            // Move file to library
-            if (File.Exists(destinationPath))
-            {
-                _logger.LogWarning("File already exists at {Path}, overwriting", destinationPath);
-            }
-
-            File.Copy(job.FilePath, destinationPath, overwrite: true);
-
-            // Create Book record
-            var book = new Book
-            {
-                Title = candidate.Title,
-                Author = candidate.Author,
-                Source = candidate.Source,
-                ExternalId = candidate.ExternalId,
-                FilePath = destinationPath,
-                ImportedAt = DateTime.UtcNow,
-                ImportJobId = job.Id
-            };
-
-            _db.Books.Add(book);
-
-            // Update job status
-            job.Status = ImportStatus.Completed;
-            job.UpdatedAt = DateTime.UtcNow;
-
-            // Delete original file
-            try
-            {
-                File.Delete(job.FilePath);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Could not delete original file {FilePath}", job.FilePath);
-            }
-
-            await _db.SaveChangesAsync();
-
-            _logger.LogInformation("Import job {JobId} completed. Book: {Title} by {Author}",
-                job.Id, book.Title, book.Author);
+            await publisher.PublishAsync(job.FilePath, job.DestinationPath!, job.FileHash, cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogError(ex, "Error accepting candidate for import job {JobId}", job.Id);
-            job.Status = ImportStatus.Failed;
-            job.UpdatedAt = DateTime.UtcNow;
-            await _db.SaveChangesAsync();
+            logger.LogWarning(ex, "Publication failed for import {ImportId}", job.Id);
+            await FailAsync(job, "The book could not be published. Check the source, destination, permissions, and available space, then retry.", cancellationToken);
+            throw new ImportConflictException(job.LastError!);
+        }
+
+        job.AcceptedBook = new Book
+        {
+            Title = candidate.Title,
+            Author = candidate.Author,
+            Source = candidate.Source,
+            ExternalId = candidate.ExternalId,
+            FilePath = job.DestinationPath,
+            ImportedAt = Now,
+            IntegrityStatus = IntegrityStatus.Verified,
+            IntegrityCheckedAt = Now,
+            ImportJobId = job.Id
+        };
+        job.Status = ImportStatus.Completed;
+        job.LeaseExpiresAt = null;
+        job.LastError = null;
+        job.CleanupStatus = options.Value.DeleteSourceAfterImport ? SourceCleanupStatus.Pending : SourceCleanupStatus.NotRequested;
+        job.CleanupAfter = options.Value.DeleteSourceAfterImport ? Now : null;
+        Record(job, "Verified library copy and completed the import.");
+        // Publication can be replayed after a failed commit. Source cleanup follows the durable completion.
+        await db.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await cleanup.TryCleanupAsync(job, cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException or DbUpdateException)
+        {
+            logger.LogWarning(ex, "Import {ImportId} completed; its source was retained", job.Id);
         }
     }
 
-    public static string SanitizeFileName(string input)
+    private async Task FailAsync(ImportJob job, string message, CancellationToken ct)
     {
-        var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitizedName = string.Join("_", input.Split(invalidChars));
-        return sanitizedName;
+        job.Status = ImportStatus.Failed;
+        job.LastError = message;
+        job.LeaseExpiresAt = null;
+        Record(job, message);
+        await db.SaveChangesAsync(ct);
     }
 
-    public static string SanitizePath(string input, char replacementChar = '_')
+    private void Record(ImportJob job, string message)
     {
-        var invalidChars = Path.GetInvalidPathChars();
-        var sanitizedPath = string.Join("_", input.Split(invalidChars));
-        return sanitizedPath.Replace("..", ".");
+        job.UpdatedAt = Now;
+        job.Events.Add(new ImportEvent { Message = message, CreatedAt = Now });
     }
 }
