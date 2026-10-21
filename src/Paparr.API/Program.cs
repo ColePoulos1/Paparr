@@ -53,6 +53,7 @@ builder.Services.AddScoped<LibraryAuditService>();
 builder.Services.AddSingleton<FileStabilityTracker>();
 builder.Services.AddSingleton<StableFileHashCache>();
 builder.Services.AddSingleton<MetadataProviderGateway>();
+builder.Services.AddSingleton<WorkerDiagnostics>();
 builder.Services.AddHostedService<BackgroundIngestionWorker>();
 builder.Services.AddHttpClient<IMetadataEnricherService, MetadataEnricherService>(client =>
 {

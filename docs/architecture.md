@@ -63,6 +63,8 @@ Checks report verified, missing, changed, or unavailable files. They never repai
 
 ## Deployment boundary
 
+Worker diagnostics keep a process-local snapshot of queued work, cleanup, integrity, and discovery phases. Each phase records attempt, success, and failure times, a monotonic duration, and a curated error without paths or exception text. Delays measure elapsed time since progress; a delay is a signal to inspect ongoing work, not proof of deadlock. The owner-only endpoint disables response caching. Snapshots reset on restart and represent the serving instance, while PostgreSQL job and audit records remain the durable history.
+
 Nginx serves the UI and proxies API requests on the same origin. The default Compose port binds to loopback, and neither PostgreSQL nor the API publishes a host port. Host filtering rejects unconfigured hostnames; unsafe browser requests from another origin are rejected. The proxy preserves the original Host and port.
 
 Owner authentication protects API reads and writes by default. The password helper uses ASP.NET Identity's salted PBKDF2-HMAC-SHA512 hash with 210,000 iterations. Configuration contains the hash, not the password. Startup rejects missing or unsupported hashes while authentication is enabled.

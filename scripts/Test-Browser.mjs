@@ -54,6 +54,12 @@ try {
     .toContainText("This scan covered 2 books.", { timeout: 45000 });
   await expect(page.getByRole("cell", { name: "Verified", exact: true })).toHaveCount(2);
   await page.screenshot({ path: join(outputDirectory, "library-desktop.png"), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.getByRole("button", { name: "Worker status", exact: true }).click();
+  const worker = page.getByRole("region", { name: "Worker status", exact: true });
+  await expect(worker.getByRole("article")).toHaveCount(4);
+  await expect(worker.getByRole("article", { name: "File discovery" })).toContainText("Succeeded");
+  await page.screenshot({ path: join(outputDirectory, "worker-desktop.png"), fullPage: true });
   const mobileContext = await browser.newContext({
     ...devices["iPhone 13"], storageState: await context.storageState(),
   });
@@ -65,6 +71,11 @@ try {
   for (const surface of [page, mobile]) {
     expect(await surface.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
+  await mobile.getByRole("button", { name: "Worker status", exact: true }).click();
+  await expect(mobile.getByRole("region", { name: "Worker status", exact: true }).getByRole("article"))
+    .toHaveCount(4);
+  expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await mobile.screenshot({ path: join(outputDirectory, "worker-mobile.png"), fullPage: true });
   await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
   await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
   await expect(mobile.getByRole("region", { name: "Duplicate files", exact: true }))

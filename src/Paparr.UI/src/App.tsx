@@ -3,6 +3,12 @@ import { labels, request, statuses } from "./api";
 import type { ImportJob, Page, Status, Summary } from "./api";
 import ReviewPanel from "./components/ReviewPanel";
 import LibraryHealth from "./components/LibraryHealth";
+import WorkerHealth from "./components/WorkerHealth";
+
+function locationView(): "imports" | "library" | "worker" {
+  const view = new URLSearchParams(window.location.search).get("view");
+  return view === "library" || view === "worker" ? view : "imports";
+}
 
 function locationFilter() {
   const params = new URLSearchParams(window.location.search);
@@ -25,9 +31,7 @@ interface AppProps {
 
 export default function App({ signOut }: AppProps) {
   const [filter, setFilter] = useState(locationFilter);
-  const [libraryView, setLibraryView] = useState(
-    () => new URLSearchParams(window.location.search).get("view") === "library",
-  );
+  const [view, setView] = useState(locationView);
   const [result, setResult] = useState<Page>({
     items: [],
     total: 0,
@@ -58,9 +62,7 @@ export default function App({ signOut }: AppProps) {
       setDraftJob(null);
       setSelectedId(null);
       setFilter(locationFilter());
-      setLibraryView(
-        new URLSearchParams(window.location.search).get("view") === "library",
-      );
+      setView(locationView());
     };
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
@@ -68,7 +70,7 @@ export default function App({ signOut }: AppProps) {
 
   useEffect(() => {
     const controller = new AbortController();
-    if (libraryView) {
+    if (view !== "imports") {
       request<Summary>("/api/imports/summary", { signal: controller.signal })
         .then((counts) => { if (!controller.signal.aborted) setSummary(counts); })
         .catch(() => { if (!controller.signal.aborted) setSummary(null); });
@@ -111,10 +113,10 @@ export default function App({ signOut }: AppProps) {
       controller.abort();
       window.clearInterval(interval);
     };
-  }, [filter, refresh, reload, libraryView]);
+  }, [filter, refresh, reload, view]);
 
   function navigate(next: typeof filter) {
-    setLibraryView(false);
+    setView("imports");
     setDraftJob(null);
     setSelectedId(null);
     setFilter(next);
@@ -148,12 +150,12 @@ export default function App({ signOut }: AppProps) {
             <button
               key={status}
               className={
-                !libraryView && filter.status === status
+                view === "imports" && filter.status === status
                   ? "nav-item active"
                   : "nav-item"
               }
               aria-current={
-                !libraryView && filter.status === status ? "page" : undefined
+                view === "imports" && filter.status === status ? "page" : undefined
               }
               onClick={() => navigate({ ...filter, status, page: 1 })}
             >
@@ -163,17 +165,30 @@ export default function App({ signOut }: AppProps) {
             </button>
           ))}
           <button
-            className={libraryView ? "nav-item active" : "nav-item"}
-            aria-current={libraryView ? "page" : undefined}
+            className={view === "library" ? "nav-item active" : "nav-item"}
+            aria-current={view === "library" ? "page" : undefined}
             onClick={() => {
               setDraftJob(null);
               setSelectedId(null);
-              setLibraryView(true);
+              setView("library");
               window.history.pushState(null, "", "?view=library");
             }}
           >
             <span className="status-dot Completed" />
             <span>Library health</span>
+          </button>
+          <button
+            className={view === "worker" ? "nav-item active" : "nav-item"}
+            aria-current={view === "worker" ? "page" : undefined}
+            onClick={() => {
+              setDraftJob(null);
+              setSelectedId(null);
+              setView("worker");
+              window.history.pushState(null, "", "?view=worker");
+            }}
+          >
+            <span className="status-dot Processing" />
+            <span>Worker status</span>
           </button>
         </nav>
         {signOut && (
@@ -202,8 +217,10 @@ export default function App({ signOut }: AppProps) {
       </aside>
 
       <main className="main">
-        {libraryView ? (
+        {view === "library" ? (
           <LibraryHealth />
+        ) : view === "worker" ? (
+          <WorkerHealth />
         ) : (
           <>
             <header className="page-header">

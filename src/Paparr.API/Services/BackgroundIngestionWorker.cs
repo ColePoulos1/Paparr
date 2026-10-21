@@ -6,7 +6,7 @@ using Paparr.API.Domain;
 namespace Paparr.API.Services;
 
 public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOptions<IngestionOptions> options,
-    TimeProvider clock, ILogger<BackgroundIngestionWorker> logger) : BackgroundService
+    TimeProvider clock, ILogger<BackgroundIngestionWorker> logger, WorkerDiagnostics diagnostics) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -21,6 +21,21 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
     }
 
     public async Task RunCycleAsync(CancellationToken ct)
+    {
+        diagnostics.Start();
+        await diagnostics.RunStageAsync(WorkerStage.QueuedWork, ct, () => RunQueuedWorkAsync(ct));
+        await diagnostics.RunStageAsync(WorkerStage.SourceCleanup, ct, () => RunSourceCleanupAsync(ct));
+        try
+        {
+            await diagnostics.RunStageAsync(WorkerStage.LibraryAudit, ct, () => RunLibraryAuditAsync(ct));
+        }
+        catch (DbUpdateConcurrencyException) { logger.LogDebug("Library scan was claimed by another worker"); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception ex) { logger.LogError(ex, "Library scan will resume from its durable cursor"); }
+        await diagnostics.RunStageAsync(WorkerStage.Discovery, ct, () => RunDiscoveryAsync(ct));
+    }
+
+    private async Task RunQueuedWorkAsync(CancellationToken ct)
     {
         // Queue progress must not depend on the watch directory being available.
         using (var scope = scopes.CreateScope())
@@ -48,6 +63,10 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
                 catch (Exception ex) { logger.LogError(ex, "Import {ImportId} failed; persisted work will be recovered", id); }
             }
         }
+    }
+
+    private async Task RunSourceCleanupAsync(CancellationToken ct)
+    {
         using (var scope = scopes.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -66,11 +85,16 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
                 catch (Exception ex) { logger.LogError(ex, "Source cleanup {ImportId} will be recovered", id); }
             }
         }
+    }
+
+    private async Task RunLibraryAuditAsync(CancellationToken ct)
+    {
         using var scanScope = scopes.CreateScope();
-        try { await scanScope.ServiceProvider.GetRequiredService<LibraryAuditService>().RunBatchAsync(ct); }
-        catch (DbUpdateConcurrencyException) { logger.LogDebug("Library scan was claimed by another worker"); }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex) { logger.LogError(ex, "Library scan will resume after its lease expires"); }
+        await scanScope.ServiceProvider.GetRequiredService<LibraryAuditService>().RunBatchAsync(ct);
+    }
+
+    private async Task RunDiscoveryAsync(CancellationToken ct)
+    {
         using var discoveryScope = scopes.CreateScope();
         await discoveryScope.ServiceProvider.GetRequiredService<ImportScanner>().ScanAsync(ct);
     }

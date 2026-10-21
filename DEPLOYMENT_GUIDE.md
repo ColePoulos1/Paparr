@@ -57,8 +57,11 @@ Sign-in permits five requests per minute per API process. Restarting the process
 - `/health/ready`: the API can connect to PostgreSQL.
 - `docker compose logs paparr-api`: import identifiers, provider failures, and publication errors.
 - The review panel shows attempts, actionable failure messages, and event history.
+- Worker status shows when queued imports, source cleanup, integrity scans, and discovery last made progress. `/api/diagnostics/worker` exposes the same owner-protected information.
 
 Readiness does not certify filesystem permissions or parser health. A failed import retains its source for investigation. Repeated retries are bounded by `MaxAttempts`.
+
+Worker diagnostics describe the API process serving the request and reset on restart. A delay indicator appears after three polling intervals without stage progress, with a minimum of 60 seconds; large files and slow storage can also trigger it. A successful stage means the worker finished that phase, even if individual imports or cleanup attempts failed. Discovery may skip inaccessible folders. Use import history and API logs to investigate; this screen does not establish global health across multiple API instances.
 
 Optional source cleanup is tracked separately after completion. It retries up to three times, then shows a retained-source warning and a retry action. A changed source is never removed. Disabling cleanup prevents subsequent removal; it does not retroactively change already completed cleanup.
 
@@ -80,7 +83,7 @@ Run `pwsh scripts/Test-Deployment.ps1`. It creates its own Compose project and t
 
 The script removes only the resources it creates. Never use `down -v` on a real library deployment.
 
-With the development Node/Playwright dependencies installed, add `-Browser` to verify the actual packaged UI: sign-in, manual metadata, publication, integrity scans, and sign-out on desktop/mobile layouts. Screenshots are retained under the test project's `browser` directory.
+With the development Node/Playwright dependencies installed, add `-Browser` to verify the actual packaged UI: sign-in, duplicate history, manual metadata, publication, integrity scans, worker status, and sign-out on desktop/mobile layouts. Screenshots are retained under the test project's `browser` directory.
 
 ## Backups and restoration
 

@@ -7,29 +7,29 @@ Executed locally on Windows with .NET SDK 10.0.301/runtime 10.0.9, Node 24, Dock
 | Check | Result |
 | --- | --- |
 | Release solution build | Passed, zero warnings and errors |
-| Backend unit tests | 70 passed |
-| PostgreSQL integration tests | 29 passed |
-| React component tests | 23 passed |
-| Desktop/mobile browser tests with controlled API responses | 8 passed |
+| Backend unit tests | 77 passed |
+| PostgreSQL integration tests | 36 passed |
+| React component tests | 36 passed |
+| Desktop/mobile browser tests with controlled API responses | 10 passed |
 | Frontend lint and production build | Passed |
 | NuGet transitive dependency audit | No known vulnerabilities reported |
 | Clean Docker frontend dependency installation | No known vulnerabilities reported |
 
-The main suites ran through `pwsh scripts/verify.ps1 -SkipIntegration`, followed by `dotnet test tests/Paparr.IntegrationTests --configuration Release --no-build` once Docker was available. This covers the same checks as the complete verification script.
+The complete `pwsh scripts/verify.ps1` passed all 159 tests, lint, and the production builds.
 
 Integration tests exercise real PostgreSQL migrations and constraints, concurrent approvals, publication commit failures and recovery, source cleanup interruption, integrity scan recovery, revocable owner sessions, CSRF validation, password rotation, and trusted proxy handling. An upgrade test seeds the original schema before applying current migrations and checks that its import and book survive.
 
-`pwsh scripts/Test-Deployment.ps1 -Browser` passed all seven packaged checks in a fresh Compose project: installation and extraction, verified publication with source retention, container recreation, read-only integrity checks, database/library restoration into separate locations, session persistence and revocation, and desktop/mobile browser review. The browser run edited missing metadata, imported that book, scanned both library files, displayed a failed import, and confirmed a copied session stopped working after sign-out. No browser page errors or page-wide horizontal overflow were observed. The script removed its own containers, volumes, and images afterward.
+`pwsh scripts/Test-Deployment.ps1 -Browser` passed all eight packaged checks in a fresh Compose project: installation and extraction, duplicate discovery and retention, verified publication with source retention, container recreation, read-only integrity checks, database/library restoration into separate locations, session persistence and revocation, and desktop/mobile browser review. The browser run displayed duplicate history, edited missing metadata, confirmed approval committed, scanned both library files, inspected worker stages, displayed a failed import, and confirmed a copied session stopped working after sign-out. No browser page errors or page-wide horizontal overflow were observed. The script removed its own containers, volumes, and images afterward.
 
-Local evidence is saved under `.tools/paparr-smoke-77d4fee59012/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git.
+Local evidence is saved under `.tools/paparr-smoke-cb18d813a598/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git.
 
 The [discovery hashing benchmark](performance.md) measured 83% fewer bytes hashed across six passes over unchanged files. Its local timing is a microbenchmark, not an ingestion throughput claim.
 
 ## Duplicate history and filesystem regressions
 
-The complete `pwsh scripts/verify.ps1` subsequently passed: 72 unit, 33 PostgreSQL integration, 29 component, and 8 desktop/mobile browser tests, with lint and the production build passing. Duplicate tests force concurrent first discovery of identical content at different paths, check repeated discovery and unchanged job revisions, and exercise historical pagination and path privacy. Filesystem regressions first reproduced incorrect cleanup completion and missing-file classification when a recorded file was replaced by a directory, then passed after the fix.
+Duplicate tests force concurrent first discovery of identical content at different paths, check repeated discovery and unchanged job revisions, and exercise historical pagination and path privacy. Filesystem regressions first reproduced incorrect cleanup completion and missing-file classification when a recorded file was replaced by a directory, then passed after the fix.
 
-The extended packaged run confirmed duplicate discovery, source retention, recreation, and restoration. Its browser scan assertion exposed an early transition in the test: it could continue before approval was committed. The script now checks the approval response and the selected imported book before starting the scan. A complete rerun of that extended journey remains pending at this checkpoint.
+Worker diagnostics tests exercise progress, failure recovery, cancellation, monotonic duration and delay detection, wall-clock changes, owner authorization, and path privacy. A real cycle records all four stages; a failed discovery leaves earlier stage results available and returns a sanitized explanation.
 
 ## Scope and limits
 

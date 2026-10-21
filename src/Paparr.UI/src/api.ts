@@ -69,6 +69,23 @@ export interface AuthSession {
   authenticated: boolean;
   csrfToken: string | null;
 }
+export interface WorkerSnapshot {
+  enabled: boolean;
+  state: "Disabled" | "Starting" | "Running" | "Idle" | "Delayed";
+  startedAt: string;
+  lastProgressAt: string | null;
+  staleAfterSeconds: number;
+  currentStage: string | null;
+  stages: {
+    key: string;
+    state: "NotRun" | "Running" | "Succeeded" | "Failed" | "Canceled";
+    lastAttemptAt: string | null;
+    lastSuccessAt: string | null;
+    lastFailureAt: string | null;
+    lastDurationMs: number | null;
+    error: string | null;
+  }[];
+}
 
 let csrfToken: string | null = null;
 let sessionGeneration = 0;
