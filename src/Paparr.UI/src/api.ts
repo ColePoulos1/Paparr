@@ -52,6 +52,17 @@ export interface Preview {
   destinationExists: boolean;
   sourceRetained: boolean;
 }
+export interface DuplicatePage {
+  items: {
+    id: number;
+    fileName: string;
+    relativePath: string | null;
+    discoveredAt: string;
+  }[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 export type Summary = Record<Status, number>;
 export interface AuthSession {
   enabled: boolean;

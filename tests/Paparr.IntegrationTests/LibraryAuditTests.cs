@@ -135,6 +135,30 @@ public sealed class LibraryAuditTests(PostgresFixture postgres)
             .LibraryAudits.CountAsync(audit => audit.IsActive));
     }
 
+    [Fact]
+    public async Task A_directory_in_place_of_a_library_file_is_unavailable_rather_than_missing()
+    {
+        using var app = await PaparrFactory.CreateAsync(postgres);
+        using var client = app.CreateClient();
+        var id = await app.SeedAsync();
+        var job = await app.ReadAsync(id);
+        (await client.PostAsync($"/api/imports/{id}/accept/{job.Candidates.Single().Id}", null)).EnsureSuccessStatusCode();
+        var path = (await app.ReadAsync(id)).DestinationPath!;
+        File.Delete(path);
+        Directory.CreateDirectory(path);
+        var replacement = Path.Combine(path, "keep.txt");
+        await File.WriteAllTextAsync(replacement, "unrelated content");
+
+        var queued = await (await client.PostAsync("/api/library/audits", null)).Content.ReadFromJsonAsync<LibraryAuditDto>();
+        await RunBatchAsync(app);
+
+        var result = await client.GetFromJsonAsync<LibraryAuditDto>($"/api/library/audits/{queued!.Id}");
+        Assert.Equal(1, result!.UnavailableBooks);
+        Assert.Equal(0, result.MissingBooks);
+        Assert.Equal(1, result.ProcessedBooks);
+        Assert.Equal("unrelated content", await File.ReadAllTextAsync(replacement));
+    }
+
     private static async Task RunBatchAsync(PaparrFactory app)
     {
         using var scope = app.Services.CreateScope();

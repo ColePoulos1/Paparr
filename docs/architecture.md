@@ -22,6 +22,10 @@ A unique SHA-256 index prevents duplicate content jobs. Revision tokens prevent 
 
 The scanner waits for unchanged length and modification time across observations before hashing a file. Duplicates remain in the ingest directory. Retries come from the persisted queue and do not depend on rediscovering a source.
 
+Distinct paths with the same content hash become duplicate observations on the original import. A unique job/path-key constraint makes repeated and concurrent discovery idempotent without changing the job's revision or approval state. A scanner that loses a concurrent content insertion reloads the winning job and records its path immediately. Path keys use canonical absolute paths, with case folded on Windows.
+
+The review desk fetches duplicate observations separately in bounded pages. These are historical observations, not an inventory of current files: removing or moving a duplicate does not erase its history. Only paths relative to the current ingest root are exposed; outside-root locations are hidden. Duplicate files are never scheduled for source cleanup.
+
 A 512-entry discovery cache avoids hashing unchanged retained files on every poll. It revalidates after five minutes, invalidates changed size/timestamps, and drops paths no longer present. A same-size edit that preserves its timestamp can take up to five minutes to appear in discovery. Publication and cleanup still hash the actual bytes independently. Files that change while being hashed are deferred to a later scan.
 
 ## Publication protocol

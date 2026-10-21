@@ -20,6 +20,7 @@ public class ImportJob
     public string? CleanupError { get; set; }
     public ICollection<MetadataCandidate> Candidates { get; set; } = new List<MetadataCandidate>();
     public ICollection<ImportEvent> Events { get; set; } = new List<ImportEvent>();
+    public ICollection<DuplicateSource> DuplicateSources { get; set; } = new List<DuplicateSource>();
     public Book? AcceptedBook { get; set; }
 }
 

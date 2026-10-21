@@ -9,6 +9,7 @@ Paparr keeps an import history and verifies file content before publication. Ori
 ## What works
 
 - Stable-file discovery and a durable PostgreSQL import queue.
+- Duplicate-file history that explains skipped copies while leaving their files untouched.
 - EPUB and PDF metadata extraction, with filename fallback.
 - Open Library and Google Books candidates with source labels, matching evidence, caching, and rate-limit handling.
 - A responsive review workspace with search, pagination, manual metadata, destination previews, and event history.

@@ -2,13 +2,14 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { job, preview, summary } from "./test/fixtures";
+import { emptyDuplicates, job, preview, summary } from "./test/fixtures";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 afterEach(() => vi.unstubAllGlobals());
 
 function mockApi(items = [job]) {
   const fetchMock = vi.fn(async (url: string) => {
+    if (url.includes("/duplicates?")) return new Response(JSON.stringify(emptyDuplicates));
     const body = url.includes("/preview/")
       ? preview
       : url.endsWith("/summary")
@@ -81,6 +82,7 @@ describe("Import workspace", () => {
   it("preserves an unsaved metadata draft when refresh removes the job", async () => {
     let items = [job];
     const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/duplicates?")) return new Response(JSON.stringify(emptyDuplicates));
       const body = url.includes("/preview/")
         ? preview
         : url.endsWith("/summary")
@@ -118,6 +120,8 @@ describe("Import workspace", () => {
     let finishStale: (response: Response) => void = () => undefined;
     let listCalls = 0;
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes("/duplicates?"))
+        return Promise.resolve(new Response(JSON.stringify(emptyDuplicates)));
       if (url.endsWith("/summary"))
         return Promise.resolve(new Response(JSON.stringify(summary)));
       if (url.includes("/preview/"))

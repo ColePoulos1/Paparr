@@ -23,6 +23,7 @@ public sealed record BookDto(long Id, string Title, string Author, string Source
 public sealed record ImportEventDto(string Message, DateTime CreatedAt);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 public sealed record ImportPreviewDto(string RelativePath, bool DestinationExists, bool SourceRetained);
+public sealed record DuplicateSourceDto(long Id, string FileName, string? RelativePath, DateTime DiscoveredAt);
 public sealed record EditMetadataRequest(
     [Required, StringLength(300, MinimumLength = 1)] string Title,
     [Required, StringLength(300, MinimumLength = 1)] string Author);

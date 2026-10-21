@@ -72,6 +72,29 @@ public sealed class LibraryPublisherTests
     }
 
     [Fact]
+    public async Task Cleanup_does_not_treat_a_replacement_directory_as_a_removed_source()
+    {
+        using var library = new TemporaryLibrary();
+        library.Settings.DeleteSourceAfterImport = true;
+        var source = library.Write("original");
+        var hash = await new FileHashService().ComputeHashAsync(source);
+        var destination = Path.Combine(library.Library, "book.epub");
+        await library.Publisher().PublishAsync(source, destination, hash, default);
+        File.Delete(source);
+        Directory.CreateDirectory(source);
+        var replacement = Path.Combine(source, "keep.txt");
+        await File.WriteAllTextAsync(replacement, "unrelated content");
+
+        var error = await Record.ExceptionAsync(() => library.Publisher()
+            .CleanupSourceAsync(source, destination, hash, default));
+
+        Assert.NotNull(error);
+        Assert.True(error is IOException or UnauthorizedAccessException);
+        Assert.Equal("unrelated content", await File.ReadAllTextAsync(replacement));
+        Assert.Equal("original", await File.ReadAllTextAsync(destination));
+    }
+
+    [Fact]
     public async Task Cancelled_publication_leaves_no_final_file()
     {
         using var library = new TemporaryLibrary();

@@ -52,6 +52,41 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
         return job == null ? NotFound() : Ok(ToDto(job));
     }
 
+    [HttpGet("{id:long}/duplicates")]
+    public async Task<ActionResult<PagedResult<DuplicateSourceDto>>> GetDuplicateSources(long id,
+        CancellationToken ct, int page = 1, int pageSize = 25)
+    {
+        if (page < 1 || page > 100000 || pageSize is < 1 or > 100)
+            return ValidationProblem("Use a valid page and page size from 1 to 100.");
+        if (!await db.ImportJobs.AnyAsync(j => j.Id == id, ct)) return NotFound();
+
+        var query = db.DuplicateSources.AsNoTracking().Where(d => d.ImportJobId == id);
+        var total = await query.CountAsync(ct);
+        var sources = await query.OrderBy(d => d.DiscoveredAt).ThenBy(d => d.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var items = sources.Select(source => new DuplicateSourceDto(source.Id, SafeFileName(source.FilePath),
+            GetRelativeSourcePath(source.FilePath), source.DiscoveredAt)).ToList();
+        return Ok(new PagedResult<DuplicateSourceDto>(items, total, page, pageSize));
+    }
+
+    private string? GetRelativeSourcePath(string path)
+    {
+        try
+        {
+            var root = Path.GetFullPath(options.Value.IngestPath);
+            if (!LibraryPaths.IsWithin(root, path)) return null;
+            return Path.GetRelativePath(root, Path.GetFullPath(path)).Replace('\\', '/');
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    private static string SafeFileName(string path) => path
+        .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+        .LastOrDefault() ?? "";
+
     [HttpGet("{id:long}/preview/{candidateId:long}")]
     public async Task<ActionResult<ImportPreviewDto>> Preview(long id, long candidateId, CancellationToken ct)
     {

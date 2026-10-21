@@ -15,6 +15,7 @@ public class AppDbContext : DbContext
     public DbSet<ImportEvent> ImportEvents { get; set; } = null!;
     public DbSet<LibraryAudit> LibraryAudits { get; set; } = null!;
     public DbSet<AuthSession> AuthSessions { get; set; } = null!;
+    public DbSet<DuplicateSource> DuplicateSources { get; set; } = null!;
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -53,6 +54,20 @@ public class AppDbContext : DbContext
                 .WithOne(c => c.ImportJob)
                 .HasForeignKey(c => c.ImportJobId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.DuplicateSources)
+                .WithOne(d => d.ImportJob)
+                .HasForeignKey(d => d.ImportJobId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DuplicateSource>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.FilePath).IsRequired();
+            entity.Property(e => e.PathKey).HasMaxLength(64).IsRequired();
+            entity.HasIndex(e => new { e.ImportJobId, e.PathKey }).IsUnique();
+            entity.HasIndex(e => new { e.ImportJobId, e.DiscoveredAt, e.Id });
         });
 
         modelBuilder.Entity<Book>(entity =>

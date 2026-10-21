@@ -53,8 +53,16 @@ public sealed class LibraryPublisher(IFileHashService hashes, IOptions<Ingestion
 
     public async Task CleanupSourceAsync(string source, string destination, string hash, CancellationToken cancellationToken)
     {
-        if (!options.Value.DeleteSourceAfterImport || !File.Exists(source)) return;
+        if (!options.Value.DeleteSourceAfterImport) return;
         LibraryPaths.EnsureSafe(options.Value.IngestPath, source);
+        // Exists also returns false on access errors; only confirmed absence completes cleanup.
+        try
+        {
+            if (File.GetAttributes(source).HasFlag(FileAttributes.Directory))
+                throw new IOException("The source path is a directory. No cleanup was performed.");
+        }
+        catch (FileNotFoundException) { return; }
+        catch (DirectoryNotFoundException) { return; }
         LibraryPaths.EnsureSafe(options.Value.LibraryPath, destination);
         await VerifyAsync(destination, hash, cancellationToken);
         await VerifyAsync(source, hash, cancellationToken);

@@ -96,6 +96,31 @@ public sealed class SourceCleanupTests(PostgresFixture postgres)
         Assert.True(File.Exists((await app.ReadAsync(id)).FilePath));
     }
 
+    [Fact]
+    public async Task A_replacement_directory_leaves_cleanup_pending_and_the_import_complete()
+    {
+        using var app = await PaparrFactory.CreateAsync(postgres);
+        using var client = app.CreateClient();
+        var id = await app.SeedAsync();
+        var before = await app.ReadAsync(id);
+        app.Failure.CleanupClaimArmed = true;
+        (await client.PostAsync($"/api/imports/{id}/accept/{before.Candidates.Single().Id}", null)).EnsureSuccessStatusCode();
+        File.Delete(before.FilePath);
+        Directory.CreateDirectory(before.FilePath);
+        var replacement = Path.Combine(before.FilePath, "keep.txt");
+        await File.WriteAllTextAsync(replacement, "unrelated content");
+
+        await Worker(app).RunCycleAsync(default);
+
+        var after = await app.ReadAsync(id);
+        Assert.Equal(ImportStatus.Completed, after.Status);
+        Assert.Equal(SourceCleanupStatus.Pending, after.CleanupStatus);
+        Assert.Equal(1, after.CleanupAttemptCount);
+        Assert.NotNull(after.CleanupError);
+        Assert.Equal("unrelated content", await File.ReadAllTextAsync(replacement));
+        Assert.Equal(before.FileHash, await new FileHashService().ComputeHashAsync(after.DestinationPath!));
+    }
+
     private static BackgroundIngestionWorker Worker(PaparrFactory app) =>
         ActivatorUtilities.CreateInstance<BackgroundIngestionWorker>(app.Services);
 

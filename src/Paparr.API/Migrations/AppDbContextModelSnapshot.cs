@@ -95,6 +95,39 @@ namespace Paparr.API.Migrations
                     b.ToTable("Books");
                 });
 
+            modelBuilder.Entity("Paparr.API.Domain.DuplicateSource", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("DiscoveredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("ImportJobId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PathKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportJobId", "PathKey")
+                        .IsUnique();
+
+                    b.HasIndex("ImportJobId", "DiscoveredAt", "Id");
+
+                    b.ToTable("DuplicateSources");
+                });
+
             modelBuilder.Entity("Paparr.API.Domain.ImportEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -305,6 +338,17 @@ namespace Paparr.API.Migrations
                     b.Navigation("ImportJob");
                 });
 
+            modelBuilder.Entity("Paparr.API.Domain.DuplicateSource", b =>
+                {
+                    b.HasOne("Paparr.API.Domain.ImportJob", "ImportJob")
+                        .WithMany("DuplicateSources")
+                        .HasForeignKey("ImportJobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ImportJob");
+                });
+
             modelBuilder.Entity("Paparr.API.Domain.ImportEvent", b =>
                 {
                     b.HasOne("Paparr.API.Domain.ImportJob", null)
@@ -330,6 +374,8 @@ namespace Paparr.API.Migrations
                     b.Navigation("AcceptedBook");
 
                     b.Navigation("Candidates");
+
+                    b.Navigation("DuplicateSources");
 
                     b.Navigation("Events");
                 });

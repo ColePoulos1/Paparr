@@ -8,7 +8,7 @@
 | Safe imports | Durable queue, revision guards, leases, verified publication, collision protection, explicit retry, durable source cleanup | Staging-file maintenance and operator diagnostics |
 | Metadata | Real PDF/EPUB parsing, provenance, matching evidence, provider isolation, bounded cache, cooldowns | Edition identifiers, calibrated automatic decisions |
 | Review experience | TypeScript workspace, search, paging, manual edits, destination previews, timeline, draft preservation | Generated API types and richer metadata comparison |
-| Product features | Read-only resumable integrity scans, library health screen, synthetic offline demo | Duplicate/edition review, safe undo, folder profiles |
+| Product features | Read-only resumable integrity scans, library health screen, duplicate-file history, synthetic offline demo | Edition comparison, safe undo, folder profiles |
 | Library integration | Portable standalone library structure | Explicit Calibre handoff and edition/file model |
 | Operations | Same-origin proxy, non-root containers, persistent storage, owner sign-in, CSRF/host/origin checks, tested restoration | Broader operational diagnostics and remote TLS deployment checks |
 | Release | Screenshots, architecture notes, changelog, repeatable deployment checks, discovery hashing benchmark | Release packaging, full upgrade matrix and ingestion throughput measurements |
@@ -33,6 +33,6 @@ The original builds passed, but there were no automated tests. PDF extraction us
 
 ## Next implementation priorities
 
-1. Edition and file identity, duplicate review, and an explicit Calibre export workflow.
+1. Edition identifiers and comparison, and an explicit Calibre export workflow.
 2. Retained-source undo with previews and filesystem/database recovery tests.
 3. Worker diagnostics, staging maintenance, and performance measurements.

@@ -1,8 +1,15 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import ReviewPanel from "./ReviewPanel";
-import { job, preview } from "../test/fixtures";
+import { emptyDuplicates, job, preview } from "../test/fixtures";
+
+beforeEach(() =>
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => new Response(JSON.stringify(emptyDuplicates))),
+  ),
+);
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -11,18 +18,26 @@ it("renders awaiting approval when the provider found no complete metadata", () 
 
   render(<ReviewPanel job={withoutCandidates} onChange={vi.fn()} />);
 
-  expect(screen.getByRole("heading", { name: "Give this book a name" })).toBeVisible();
+  expect(
+    screen.getByRole("heading", { name: "Give this book a name" }),
+  ).toBeVisible();
   expect(screen.getByRole("button", { name: "Edit details" })).toBeVisible();
   expect(screen.getByText(/No complete metadata was found/)).toBeVisible();
 });
 
 it("renders retry for a failed import without metadata candidates", () => {
-  const failedWithoutCandidates = { ...job, status: "Failed" as const, candidates: [] };
+  const failedWithoutCandidates = {
+    ...job,
+    status: "Failed" as const,
+    candidates: [],
+  };
 
   render(<ReviewPanel job={failedWithoutCandidates} onChange={vi.fn()} />);
 
   expect(screen.getByRole("button", { name: "Retry import" })).toBeVisible();
-  expect(screen.queryByRole("button", { name: "Approve & import" })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Approve & import" }),
+  ).not.toBeInTheDocument();
 });
 
 it("prevents duplicate approval while a request is in flight", async () => {
@@ -31,9 +46,11 @@ it("prevents duplicate approval while a request is in flight", async () => {
     finish = resolve;
   });
   const fetchMock = vi.fn((url: string) =>
-    url.includes("/accept/")
-      ? pending
-      : Promise.resolve(new Response(JSON.stringify(preview))),
+    url.includes("/duplicates?")
+      ? Promise.resolve(new Response(JSON.stringify(emptyDuplicates)))
+      : url.includes("/accept/")
+        ? pending
+        : Promise.resolve(new Response(JSON.stringify(preview))),
   );
   vi.stubGlobal("fetch", fetchMock);
   const onChange = vi.fn();
@@ -53,11 +70,16 @@ it("keeps the review available after a failed approval", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) =>
-      url.includes("/accept/")
-        ? new Response(JSON.stringify({ detail: "Destination unavailable" }), {
-            status: 409,
-          })
-        : new Response(JSON.stringify(preview)),
+      url.includes("/duplicates?")
+        ? new Response(JSON.stringify(emptyDuplicates))
+        : url.includes("/accept/")
+          ? new Response(
+              JSON.stringify({ detail: "Destination unavailable" }),
+              {
+                status: 409,
+              },
+            )
+          : new Response(JSON.stringify(preview)),
     ),
   );
   const user = userEvent.setup();
@@ -75,7 +97,15 @@ it("keeps the review available after a failed approval", async () => {
 it("saves a manual choice with the entered fields", async () => {
   const fetchMock = vi.fn(
     async (url: string) =>
-      new Response(JSON.stringify(url.includes("/metadata") ? job : preview)),
+      new Response(
+        JSON.stringify(
+          url.includes("/duplicates?")
+            ? emptyDuplicates
+            : url.includes("/metadata")
+              ? job
+              : preview,
+        ),
+      ),
   );
   vi.stubGlobal("fetch", fetchMock);
   const user = userEvent.setup();
@@ -106,11 +136,12 @@ it("saves a manual choice with the entered fields", async () => {
 it("cannot approve without a successful destination preview", async () => {
   vi.stubGlobal(
     "fetch",
-    vi.fn(
-      async () =>
-        new Response(JSON.stringify({ detail: "Invalid destination" }), {
-          status: 409,
-        }),
+    vi.fn(async (url: string) =>
+      url.includes("/duplicates?")
+        ? new Response(JSON.stringify(emptyDuplicates))
+        : new Response(JSON.stringify({ detail: "Invalid destination" }), {
+            status: 409,
+          }),
     ),
   );
   render(<ReviewPanel job={job} onChange={vi.fn()} />);
@@ -128,15 +159,17 @@ it("does not let an older preview authorize the newly selected candidate", async
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string) =>
-      url.includes("/preview/11")
-        ? new Promise<Response>((resolve) => {
-            finishFirst = resolve;
-          })
-        : url.includes("/preview/12")
+      url.includes("/duplicates?")
+        ? Promise.resolve(new Response(JSON.stringify(emptyDuplicates)))
+        : url.includes("/preview/11")
           ? new Promise<Response>((resolve) => {
-              finishSecond = resolve;
+              finishFirst = resolve;
             })
-          : Promise.resolve(new Response(JSON.stringify(job))),
+          : url.includes("/preview/12")
+            ? new Promise<Response>((resolve) => {
+                finishSecond = resolve;
+              })
+            : Promise.resolve(new Response(JSON.stringify(job))),
     ),
   );
   const user = userEvent.setup();
@@ -180,19 +213,20 @@ it("retries source cleanup when the completed import says it can be retried", as
       canRetry: true,
     },
   };
-  const fetchMock = vi.fn(
-    async () =>
-      new Response(
-        JSON.stringify({
-          ...completed,
-          cleanup: {
-            status: "Completed",
-            attemptCount: 2,
-            error: null,
-            canRetry: false,
-          },
-        }),
-      ),
+  const fetchMock = vi.fn(async (url: string) =>
+    url.includes("/duplicates?")
+      ? new Response(JSON.stringify(emptyDuplicates))
+      : new Response(
+          JSON.stringify({
+            ...completed,
+            cleanup: {
+              status: "Completed",
+              attemptCount: 2,
+              error: null,
+              canRetry: false,
+            },
+          }),
+        ),
   );
   vi.stubGlobal("fetch", fetchMock);
   const user = userEvent.setup();

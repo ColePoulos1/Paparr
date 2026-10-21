@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { labels, request } from "../api";
 import type { ImportJob, Preview } from "../api";
+import DuplicateSources from "./DuplicateSources";
 
 export default function ReviewPanel({
   job,
@@ -302,6 +303,7 @@ export default function ReviewPanel({
           )}
         </div>
       )}
+      <DuplicateSources jobId={job.id} />
       <div className="section-heading timeline-heading">
         <h3>Import history</h3>
         <small>

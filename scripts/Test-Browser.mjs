@@ -19,6 +19,11 @@ try {
   await expect(page.getByRole("heading", { name: "Sign in to Paparr" })).toBeVisible();
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  await page.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  await expect(page.getByRole("region", { name: "Duplicate files", exact: true }))
+    .toContainText("copies/The Quiet Atlas copy.epub");
+  await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Needs review/ }).click();
   await page.getByRole("button", { name: /Untitled.epub/ }).click();
   await expect(page.getByText(/No complete metadata was found/)).toBeVisible();
   await page.getByRole("button", { name: "Edit details", exact: true }).click();
@@ -27,9 +32,20 @@ try {
   await page.getByRole("button", { name: "Save metadata choice", exact: true }).click();
   await expect(page.getByText("DESTINATION PREVIEW", { exact: true })).toBeVisible();
   await page.screenshot({ path: join(outputDirectory, "review-desktop.png"), fullPage: true });
+  const approvalResponse = page.waitForResponse(response =>
+    response.request().method() === "POST" && /\/accept\/\d+$/.test(new URL(response.url()).pathname));
   await page.getByRole("button", { name: "Approve & import", exact: true }).click();
-  await page.getByRole("navigation").getByRole("button", { name: /^Imported/ }).click();
-  await page.getByRole("button", { name: /A Reader's Notebook/ }).click();
+  const approval = await approvalResponse;
+  expect(approval.ok()).toBe(true);
+  const accepted = await approval.json();
+  expect(accepted.status).toBe("Completed");
+  expect(accepted.acceptedBook.title).toBe("A Reader's Notebook");
+  await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  const notebook = page.getByRole("button", { name: /A Reader's Notebook/ });
+  await expect(notebook).toContainText("Imported");
+  await notebook.click();
+  await expect(page.getByRole("region", { name: "Import details" }))
+    .toContainText("A Reader's Notebook");
   await expect(page.getByText("IN YOUR LIBRARY", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Library health", exact: true }).click();
   await page.getByRole("button", { name: "Start integrity scan", exact: true }).click();
@@ -49,6 +65,12 @@ try {
   for (const surface of [page, mobile]) {
     expect(await surface.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
+  await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  await expect(mobile.getByRole("region", { name: "Duplicate files", exact: true }))
+    .toContainText("copies/The Quiet Atlas copy.epub");
+  expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await mobile.screenshot({ path: join(outputDirectory, "duplicates-mobile.png"), fullPage: true });
   await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Needs attention/ }).click();
   await mobile.getByRole("button", { name: /Incomplete download.pdf/ }).click();
   await expect(mobile.getByRole("region", { name: "Import details" }))
@@ -58,7 +80,7 @@ try {
   await expect(page.getByRole("heading", { name: "Sign in to Paparr" })).toBeVisible();
   expect((await mobileContext.request.get(url + "/api/imports")).status()).toBe(401);
   expect(errors).toEqual([]);
-  console.log("Packaged desktop/mobile browser checks passed: sign-in, manual review, approval, integrity scan, failed import, and revoked session.");
+  console.log("Packaged desktop/mobile browser checks passed: sign-in, duplicates, manual review, approval, integrity scan, failed import, and revoked session.");
 } catch (error) {
   await page?.screenshot({ path: join(outputDirectory, "failure.png"), fullPage: true }).catch(() => {});
   const message = String(error).replaceAll(password, "[redacted]");

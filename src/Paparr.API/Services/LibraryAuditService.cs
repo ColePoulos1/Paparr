@@ -82,8 +82,9 @@ public sealed class LibraryAuditService(AppDbContext db, IFileHashService hashes
         try
         {
             LibraryPaths.EnsureSafe(options.Value.LibraryPath, book.FilePath);
+            if (File.GetAttributes(book.FilePath).HasFlag(FileAttributes.Directory))
+                return (IntegrityStatus.Unavailable, "The library path is a directory instead of a file. Check the configured library directory.");
             var info = new FileInfo(book.FilePath);
-            if (!info.Exists) return (IntegrityStatus.Missing, "The library file is missing. Restore it from a verified backup.");
             if (info.Length > options.Value.MaxFileSizeMb * 1024L * 1024)
                 return (IntegrityStatus.Unavailable, "The file exceeds the configured scan size limit.");
             var actual = await hashes.ComputeHashAsync(book.FilePath, ct);

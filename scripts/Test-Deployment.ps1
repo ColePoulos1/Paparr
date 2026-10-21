@@ -72,6 +72,15 @@ try {
     $jobs = Invoke-RestMethod "$baseUrl/api/imports?status=AwaitingApproval"
     $job = $jobs.items | Where-Object { $_.candidates.title -contains 'The Quiet Atlas' } | Select-Object -First 1
     if (!$job) { throw 'The named demo book was not discovered.' }
+    $duplicateDirectory = Join-Path $ingest 'copies'
+    New-Item -ItemType Directory -Path $duplicateDirectory | Out-Null
+    $duplicate = Join-Path $duplicateDirectory 'The Quiet Atlas copy.epub'
+    Copy-Item -LiteralPath (Join-Path $ingest $job.fileName) -Destination $duplicate
+    Wait-For { (Invoke-RestMethod "$baseUrl/api/imports/$($job.id)/duplicates").total -eq 1 } 'duplicate observation'
+    $observation = (Invoke-RestMethod "$baseUrl/api/imports/$($job.id)/duplicates").items[0]
+    Assert-Equal 'copies/The Quiet Atlas copy.epub' $observation.relativePath 'Duplicate relative path'
+    Assert-Equal 5 (Invoke-RestMethod "$baseUrl/api/imports").total 'Duplicate does not create another import'
+    $checks.Add('Duplicate content is recorded once and retained without a second import')
     $candidate = $job.candidates | Where-Object title -eq 'The Quiet Atlas' | Select-Object -First 1
     $imported = Invoke-RestMethod "$baseUrl/api/imports/$($job.id)/accept/$($candidate.id)" -Method Post
     Assert-Equal 'Completed' $imported.status 'Approval'
@@ -80,6 +89,7 @@ try {
     $source = Join-Path $ingest $job.fileName
     $expectedHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
     Assert-Equal $expectedHash (Get-FileHash -LiteralPath $files[0].FullName -Algorithm SHA256).Hash 'Published hash'
+    Assert-Equal $expectedHash (Get-FileHash -LiteralPath $duplicate -Algorithm SHA256).Hash 'Duplicate retained after approval'
     $checks.Add('Verified publication with original retained')
     if (!$IsWindows) {
         $relative = [IO.Path]::GetRelativePath($library, $files[0].FullName).Replace('\', '/')

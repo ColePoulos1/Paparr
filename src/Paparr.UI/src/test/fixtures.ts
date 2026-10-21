@@ -1,5 +1,7 @@
 import type { ImportJob, Summary } from "../api";
 
+export const emptyDuplicates = { items: [], total: 0, page: 1, pageSize: 25 };
+
 export const job: ImportJob = {
   id: 1,
   fileName: "The Time Machine - H. G. Wells.epub",

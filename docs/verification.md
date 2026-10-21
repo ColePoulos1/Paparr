@@ -25,6 +25,12 @@ Local evidence is saved under `.tools/paparr-smoke-77d4fee59012/results.json` an
 
 The [discovery hashing benchmark](performance.md) measured 83% fewer bytes hashed across six passes over unchanged files. Its local timing is a microbenchmark, not an ingestion throughput claim.
 
+## Duplicate history and filesystem regressions
+
+The complete `pwsh scripts/verify.ps1` subsequently passed: 72 unit, 33 PostgreSQL integration, 29 component, and 8 desktop/mobile browser tests, with lint and the production build passing. Duplicate tests force concurrent first discovery of identical content at different paths, check repeated discovery and unchanged job revisions, and exercise historical pagination and path privacy. Filesystem regressions first reproduced incorrect cleanup completion and missing-file classification when a recorded file was replaced by a directory, then passed after the fix.
+
+The extended packaged run confirmed duplicate discovery, source retention, recreation, and restoration. Its browser scan assertion exposed an early transition in the test: it could continue before approval was committed. The script now checks the approval response and the selected imported book before starting the scan. A complete rerun of that extended journey remains pending at this checkpoint.
+
 ## Scope and limits
 
 - Browser tests use Chromium, including mobile viewport emulation; they do not establish compatibility with Safari or Firefox.
