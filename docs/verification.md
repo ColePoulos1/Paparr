@@ -23,6 +23,8 @@ Integration tests exercise real PostgreSQL migrations and constraints, concurren
 
 Local evidence is saved under `.tools/paparr-smoke-ba43cc78ba2f/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git.
 
+The retained synthetic demo at `http://127.0.0.1:5187` was rebuilt with the current images. Its existing library survived the update, and a separate browser check passed owner sign-in, a matching-hash download, desktop/mobile worker status, and sign-out. This demo uses only generated books and its own database and mounts.
+
 The [discovery hashing benchmark](performance.md) measured 83% fewer bytes hashed across six passes over unchanged files. Its local timing is a microbenchmark, not an ingestion throughput claim.
 
 ## Duplicate history and filesystem regressions
