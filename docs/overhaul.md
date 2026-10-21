@@ -4,7 +4,7 @@
 
 | Area | Implemented | Remaining |
 | --- | --- | --- |
-| Foundation | AGENTS.md, five project skills, SDK/runtime settings, verification script, CI, dependency updates | Published CI history and coverage trends |
+| Foundation | AGENTS.md, five project skills, SDK/runtime settings, verification script, CI, dependency updates, measured source coverage | Published CI history and coverage trends |
 | Safe imports | Durable queue, revision guards, leases, verified publication, collision protection, explicit retry, durable source cleanup | Staging-file maintenance and operator diagnostics |
 | Metadata | Real PDF/EPUB parsing, provenance, matching evidence, provider isolation, bounded cache, cooldowns | Edition identifiers, calibrated automatic decisions |
 | Review experience | TypeScript workspace, search, paging, manual edits, destination previews, timeline, draft preservation | Generated API types and richer metadata comparison |

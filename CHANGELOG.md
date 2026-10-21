@@ -17,6 +17,7 @@
 - Corrected Docker persistence and API routing; added non-root containers and host/origin checks.
 - Added owner sign-in, persisted revocable sessions, CSRF validation, password rotation, and sign-in rate limits.
 - Added unit, PostgreSQL integration, component, browser, migration, and deployment/restore checks.
+- Added combined source-line coverage reporting and regressions for policy changes, extraction failures, and session renewal races.
 - Added project instructions, skills, CI, demo fixtures, and architecture documentation.
 
 Imports now require explicit review, and originals are retained by default. Direct Calibre integration is not included.

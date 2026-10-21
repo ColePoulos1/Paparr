@@ -36,6 +36,17 @@ Browser tests exercise the UI against controlled HTTP responses. PostgreSQL inte
 
 Add `-Browser` to exercise the packaged UI against its real API on desktop and mobile. This requires the UI's installed dependencies and Playwright Chromium. CI runs this mode and saves screenshots on completion or failure.
 
+## Coverage
+
+Collect backend coverage into a fresh results directory, then combine source-line hits:
+
+```powershell
+dotnet test Paparr.slnx --configuration Release --collect:"XPlat Code Coverage" --results-directory .tools/coverage-run
+pwsh scripts/Measure-Coverage.ps1 -ResultsDirectory .tools/coverage-run
+```
+
+Use a new directory for each source revision. The report excludes generated migrations and `.g.cs` files, merges unit/integration hits without double-counting source lines, and writes `.tools/backend-coverage.md`. It does not calculate combined branch coverage or establish correctness. CI publishes the same summary alongside the original reports.
+
 ## Running locally
 
 Start a local PostgreSQL database, set `ConnectionStrings__DefaultConnection`, and set absolute `IngestPath` and `LibraryPath` values. Keep the two directories separate. Alternatively set `Database__Host`, `Database__Name`, `Database__User`, and `Database__Password`; no password is supplied by default.

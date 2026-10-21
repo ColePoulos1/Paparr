@@ -13,6 +13,7 @@ Push-Location $repoRoot
 try {
     $nodeMajor = (& node -p 'process.versions.node.split(".")[0]') -as [int]
     if ($nodeMajor -ne 24) { throw 'Verification requires Node 24. See .node-version.' }
+    Invoke-Check pwsh @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'Test-Coverage.ps1'))
     Invoke-Check dotnet @('build', 'Paparr.slnx', '--configuration', 'Release')
     Invoke-Check dotnet @('test', 'tests/Paparr.UnitTests', '--configuration', 'Release', '--no-build')
     if (!$SkipIntegration) {
