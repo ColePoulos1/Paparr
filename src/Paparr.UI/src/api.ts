@@ -120,10 +120,10 @@ export const labels: Record<Status, string> = {
   Completed: "Imported",
 };
 
-export async function request<T>(
+async function fetchResponse(
   path: string,
   options: RequestInit = {},
-): Promise<T> {
+): Promise<Response> {
   const headers = new Headers(options.headers);
   if (options.body != null && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
@@ -148,5 +148,28 @@ export async function request<T>(
         "The server could not complete this request.",
     );
   }
-  return response.json() as Promise<T>;
+  return response;
+}
+
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  return (await fetchResponse(path, options)).json() as Promise<T>;
+}
+
+export async function downloadBook(id: number, signal: AbortSignal): Promise<void> {
+  const response = await fetchResponse(`/api/library/${id}/file`, { signal });
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  const fileName = encodedName ? decodeURIComponent(encodedName)
+    : /filename="([^"]+)"/i.exec(disposition)?.[1];
+  if (!fileName) throw new Error("The download did not include a filename. Please try again.");
+  const blob = await response.blob();
+  signal.throwIfAborted();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

@@ -217,6 +217,8 @@
   display: block;
 }
 
+.library-download { margin-top: 8px; font-size: 11px; }
+
 .library-table td strong {
   color: #293c31;
   font-size: 12px;

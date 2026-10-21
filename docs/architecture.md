@@ -61,6 +61,12 @@ A scan snapshots the highest book ID and the corresponding count when queued. A 
 
 Checks report verified, missing, changed, or unavailable files. They never repair, replace, or delete library files. Results describe bytes observed at the recorded time, not a guarantee that a file cannot change afterward. New imports are outside a running scan's snapshot.
 
+## Library downloads
+
+Downloads require owner access and a linked original hash. The service validates containment and file type, opens the library file once, checks its configured size limit, hashes that stream, and rewinds the same handle for ASP.NET's attachment and byte-range response. Failed verification returns a conflict without changing library bytes or integrity records. The response disables caching and derives a bounded portable filename from the approved metadata.
+
+Verification and serving share one open handle to avoid reopening a replaced path. On Unix, another local process can still modify bytes in place while a response is sent; Paparr should own its library directory. The web client buffers the response so it can display download failures without leaving the library screen. Its memory use depends on file size; direct API clients can use byte ranges.
+
 ## Deployment boundary
 
 Worker diagnostics keep a process-local snapshot of queued work, cleanup, integrity, and discovery phases. Each phase records attempt, success, and failure times, a monotonic duration, and a curated error without paths or exception text. Delays measure elapsed time since progress; a delay is a signal to inspect ongoing work, not proof of deadlock. The owner-only endpoint disables response caching. Snapshots reset on restart and represent the serving instance, while PostgreSQL job and audit records remain the durable history.

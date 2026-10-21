@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { request } from "../api";
 import "./LibraryHealth.css";
+import BookDownload from "./BookDownload";
 
 type IntegrityStatus =
   "Unchecked" | "Verified" | "Missing" | "Changed" | "Unavailable";
@@ -402,6 +403,7 @@ export default function LibraryHealth() {
                     <td>
                       <strong>{book.title}</strong>
                       <span>{book.author}</span>
+                      <BookDownload id={book.id} title={book.title} />
                     </td>
                     <td>
                       <code title={book.relativePath ?? undefined}>

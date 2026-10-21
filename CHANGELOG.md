@@ -13,6 +13,7 @@
 - Added resumable read-only integrity scans and a library health view.
 - Corrected source cleanup and integrity status when a recorded file path becomes a directory.
 - Added owner-only worker diagnostics and a responsive stage status screen.
+- Added verified library downloads, resumable API ranges, and download errors within the library view.
 - Corrected Docker persistence and API routing; added non-root containers and host/origin checks.
 - Added owner sign-in, persisted revocable sessions, CSRF validation, password rotation, and sign-in rate limits.
 - Added unit, PostgreSQL integration, component, browser, migration, and deployment/restore checks.

@@ -1,12 +1,13 @@
 import { createRequire } from "node:module";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 const require = createRequire(new URL("../src/Paparr.UI/package.json", import.meta.url));
 const { chromium, devices, expect } = require("@playwright/test");
 let input = "";
 for await (const chunk of process.stdin) input += chunk;
-const { url, password, outputDirectory } = JSON.parse(input);
+const { url, password, outputDirectory, expectedHash } = JSON.parse(input);
 await mkdir(outputDirectory, { recursive: true });
 const browser = await chromium.launch();
 const errors = [];
@@ -53,6 +54,13 @@ try {
   await expect(page.getByRole("region", { name: "Latest integrity scan", exact: true }))
     .toContainText("This scan covered 2 books.", { timeout: 45000 });
   await expect(page.getByRole("cell", { name: "Verified", exact: true })).toHaveCount(2);
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download The Quiet Atlas", exact: true }).click();
+  const downloaded = await downloadEvent;
+  expect(downloaded.suggestedFilename()).toBe("The Quiet Atlas - Mara Finch.epub");
+  const downloadPath = join(outputDirectory, "downloaded-atlas.epub");
+  await downloaded.saveAs(downloadPath);
+  expect(createHash("sha256").update(await readFile(downloadPath)).digest("hex").toUpperCase()).toBe(expectedHash);
   await page.screenshot({ path: join(outputDirectory, "library-desktop.png"), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.getByRole("button", { name: "Worker status", exact: true }).click();

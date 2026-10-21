@@ -67,6 +67,8 @@ Optional source cleanup is tracked separately after completion. It retries up to
 
 Library health scans compare each recorded library file with its original hash. They can resume after a restart and never repair files automatically. Verify a backup before replacing a file reported as changed or missing.
 
+Each library row has a Download action. The server checks the file against its original hash before delivery. Changed, missing, unreadable, or unsupported files return an actionable error in the library view. Downloads do not repair files or update integrity results. Authorized API clients can use `GET /api/library/{id}/file` with HTTP byte ranges; the configured file-size limit applies.
+
 ## Synthetic demo
 
 With metadata providers disabled, generate fixtures in an empty ingest directory:

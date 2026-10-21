@@ -50,6 +50,7 @@ builder.Services.AddScoped<ILibraryPublisher, LibraryPublisher>();
 builder.Services.AddScoped<ImportScanner>();
 builder.Services.AddScoped<SourceCleanupService>();
 builder.Services.AddScoped<LibraryAuditService>();
+builder.Services.AddScoped<LibraryDownloadService>();
 builder.Services.AddSingleton<FileStabilityTracker>();
 builder.Services.AddSingleton<StableFileHashCache>();
 builder.Services.AddSingleton<MetadataProviderGateway>();

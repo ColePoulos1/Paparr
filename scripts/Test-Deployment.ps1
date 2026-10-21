@@ -143,6 +143,11 @@ try {
         -Headers @{ 'X-CSRF-TOKEN' = $authSession.csrfToken } -Body (@{ password = $ownerPassword } | ConvertTo-Json)
     Assert-Equal $true $login.authenticated 'Owner sign-in'
     Assert-Equal $summary (Invoke-RestMethod "$baseUrl/api/imports/summary" -WebSession $ownerSession | ConvertTo-Json -Compress) 'Authenticated history'
+    Assert-Equal 401 (Invoke-WebRequest "$baseUrl/api/library/$($imported.acceptedBook.id)/file" -SkipHttpErrorCheck).StatusCode 'Anonymous download'
+    $downloadPath = Join-Path $testRoot 'downloaded-atlas.epub'
+    Invoke-WebRequest "$baseUrl/api/library/$($imported.acceptedBook.id)/file" -WebSession $ownerSession -OutFile $downloadPath
+    Assert-Equal $expectedHash (Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash 'Authenticated download hash'
+    $checks.Add('Owner-only download verifies and returns the published file')
     Invoke-Compose -Arguments @('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120')
     Assert-Equal $summary (Invoke-RestMethod "$baseUrl/api/imports/summary" -WebSession $ownerSession | ConvertTo-Json -Compress) 'Session after recreation'
     $signedOut = Invoke-RestMethod "$baseUrl/api/auth/logout" -WebSession $ownerSession -Method Post `
@@ -151,7 +156,7 @@ try {
     Assert-Equal 401 (Invoke-WebRequest "$baseUrl/api/imports" -WebSession $ownerSession -SkipHttpErrorCheck).StatusCode 'Signed-out API access'
     $checks.Add('Owner authentication survives recreation and sign-out revokes access')
     if ($Browser) {
-        @{ url = $baseUrl; password = $ownerPassword; outputDirectory = (Join-Path $testRoot 'browser') } |
+        @{ url = $baseUrl; password = $ownerPassword; outputDirectory = (Join-Path $testRoot 'browser'); expectedHash = $expectedHash } |
             ConvertTo-Json -Compress | & node (Join-Path $PSScriptRoot 'Test-Browser.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Packaged browser checks failed.' }
         $checks.Add('Packaged desktop/mobile UI signs in, reviews missing metadata, imports, scans, and revokes sessions')

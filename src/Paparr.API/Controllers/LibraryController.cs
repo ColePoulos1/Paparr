@@ -10,8 +10,29 @@ namespace Paparr.API.Controllers;
 
 [ApiController]
 [Route("api/library")]
-public sealed class LibraryController(AppDbContext db, LibraryAuditService audits, IOptions<IngestionOptions> options) : ControllerBase
+public sealed class LibraryController(AppDbContext db, LibraryAuditService audits, IOptions<IngestionOptions> options,
+    LibraryDownloadService downloads) : ControllerBase
 {
+    [HttpGet("{id:long}/file")]
+    public async Task<IActionResult> Download(long id, CancellationToken ct)
+    {
+        Response.Headers.CacheControl = "private, no-store";
+        LibraryDownload? download;
+        try
+        {
+            download = await downloads.OpenVerifiedAsync(id, ct);
+        }
+        catch (LibraryDownloadConflictException)
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict,
+                title: "The stored book file is unavailable or has changed.",
+                detail: "Run a library integrity scan and check the configured library permissions.");
+        }
+        if (download is null) return NotFound();
+
+        return File(download.Stream, download.ContentType, download.FileName, enableRangeProcessing: true);
+    }
+
     [HttpGet]
     public async Task<ActionResult<LibraryPageDto>> GetBooks(CancellationToken ct,
         IntegrityStatus? status = null, int page = 1, int pageSize = 25)
