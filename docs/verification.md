@@ -7,25 +7,37 @@ Executed locally on Windows with .NET SDK 10.0.301/runtime 10.0.9, Node 24, Dock
 | Check | Result |
 | --- | --- |
 | Release solution build | Passed, zero warnings and errors |
-| Backend unit tests | 77 passed |
-| PostgreSQL integration tests | 47 passed |
-| React component tests | 39 passed |
+| Backend unit tests | 97 passed |
+| PostgreSQL integration tests | 56 passed |
+| React component tests | 44 passed |
 | Desktop/mobile browser tests with controlled API responses | 10 passed |
 | Frontend lint and production build | Passed |
 | NuGet transitive dependency audit | No known vulnerabilities reported |
 | Clean Docker frontend dependency installation | No known vulnerabilities reported |
 
-The complete `pwsh scripts/verify.ps1` passed 165 tests, lint, and the production builds. Eight additional PostgreSQL regressions then passed with the full integration suite, bringing the executed total to 173 tests. Production code did not change during those test additions.
+The current suites passed 207 tests in total, with lint, production builds, generated-contract checks, and the coverage/release script fixtures. API schema tests cover response nullability, request constructor validation, enum values, and path privacy. Deliberately changing a generated contract caused the drift check to fail; restoring it passed.
 
 Integration tests exercise real PostgreSQL migrations and constraints, concurrent approvals, publication commit failures and recovery, source cleanup interruption, integrity scan recovery, revocable owner sessions, CSRF validation, password rotation, and trusted proxy handling. An upgrade test seeds the original schema before applying current migrations and checks that its import and book survive.
 
-`pwsh scripts/Test-Deployment.ps1 -Browser` passed all nine packaged checks in a fresh Compose project: installation and extraction, duplicate discovery and retention, verified publication with source retention, container recreation, read-only integrity checks, database/library restoration into separate locations, owner-only verified downloads, session persistence and revocation, and desktop/mobile browser review. The browser run displayed duplicate history, edited missing metadata, confirmed approval committed, scanned both library files, downloaded the original EPUB with a matching hash and filename, inspected worker stages, displayed a failed import, and confirmed a copied session stopped working after sign-out. No browser page errors or page-wide horizontal overflow were observed. The script removed its own containers, volumes, and images afterward.
+`pwsh scripts/Test-Deployment.ps1 -Browser -Calibre` passed all twelve packaged checks in a fresh Compose project: installation and extraction, duplicate discovery and retention, verified publication with source retention, container recreation, read-only integrity checks, database/library restoration into separate locations, owner-only verified downloads and Calibre archives, session persistence and revocation, desktop/mobile browser review, and actual Calibre imports into isolated libraries. The browser run edited missing metadata including ISBN, publisher, year, and language, confirmed approval committed, scanned both library files, downloaded matching original bytes, exported approved metadata, inspected worker stages, displayed a failed import, and confirmed a copied session stopped working after sign-out. Calibre 5.44 preserved the approved title, author, ISBN, publisher, year, and language from the browser export. No browser page errors or page-wide horizontal overflow were observed. The script removed its own containers, volumes, and images afterward.
 
-Local evidence is saved under `.tools/paparr-smoke-ba43cc78ba2f/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git.
+Local evidence is saved under `.tools/paparr-smoke-c884114d2587/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git. Visual inspection prompted small radio-alignment and action-spacing fixes, followed by frontend verification and a rebuilt demo check.
 
 The retained synthetic demo at `http://127.0.0.1:5187` was rebuilt with the current images. Its existing library survived the update, and a separate browser check passed owner sign-in, a matching-hash download, desktop/mobile worker status, and sign-out. This demo uses only generated books and its own database and mounts.
 
-The [discovery hashing benchmark](performance.md) measured 83% fewer bytes hashed across six passes over unchanged files. Its local timing is a microbenchmark, not an ingestion throughput claim.
+The [performance harnesses](performance.md) measured 83% fewer bytes hashed across six passes over unchanged files and exercised the complete offline import pipeline on ten small PDF/EPUB fixtures. These are bounded local observations, not sustained throughput claims.
+
+## Proxy trust and local TLS
+
+`scripts/Test-ProxyTrust.ps1` reproduced the former spoofed-header behavior, then passed untrusted-header rejection, trusted HTTPS and HTTP forwarding, and invalid CIDR/injection rejection. The real UI image also started with its production entrypoint and Nginx command. The header-forwarding test uses an IPv4 peer with IPv4/IPv6 ranges configured.
+
+`scripts/Test-TlsDeployment.ps1` passed nine checks with a local self-signed certificate, distinct proxy addresses, and a disposable database/network. It checked anonymous access, CSRF, Secure/HttpOnly/SameSite cookies, sign-in, direct HTTP spoof rejection, proxy replacement of client scheme headers, cross-origin rejection, authenticated access, sign-out revocation, and readiness. Evidence is `.tools/paparr-tls-ccb68d4cab84/results.json`. The test removed its resources. Public CA validation and remote certificate provisioning remain outside this check.
+
+## Edition and export coverage
+
+Real EPUB fixtures cover ISBN URNs and embedded edition fields. Controlled provider responses cover explicit field requests, multiple editions, malformed identifiers, and work-level provenance. PostgreSQL tests verify selected metadata persistence, manual input bounds and non-inheritance, and preservation of existing rows through the edition migration. Export tests exercise EPUB/PDF ZIP contents, hash preservation, Unicode/XML text, missing and changed files, owner access, oversized metadata, and unchanged source/library/database state.
+
+Null-character regressions reproduced manual requests returning HTTP 500 and providers admitting text PostgreSQL cannot store. Manual title, author, and publisher inputs now return HTTP 400 before changing a job; subsequent valid edits still succeed. Unusable provider choices are skipped independently, invalid optional publishers are omitted, and PDF metadata can fall back to the filename.
 
 ## Duplicate history and filesystem regressions
 
@@ -37,14 +49,14 @@ Download tests verify EPUB/PDF attachment names and types, Unicode filenames, au
 
 ## Source coverage
 
-Combined backend coverage is 1,432 of 1,538 executable source lines (93.1%), excluding generated migrations and `.g.cs` files. The unit and integration reports describe the same API source revision. This is line coverage, not combined branch coverage; subprocesses such as the packaged password helper are outside the managed test collector.
+Combined backend coverage is 1,755 of 1,892 executable source lines (92.8%), excluding generated migrations and `.g.cs` files. The unit and integration reports under `.tools/coverage-null-metadata` describe the same API source revision. This is line coverage, not combined branch coverage; subprocesses such as the packaged password helper are outside the managed test collector.
 
 Coverage analysis led to regressions for changed sources, exhausted retries, cleanup disabled after restart, concurrent cleanup claims, and session renewal after logout. `scripts/Measure-Coverage.ps1` unions report hits by file and line. Its fixture check verifies complementary hits, duplicate classes, generated-file exclusions, path separator normalization, and failure when reports are absent. CI is configured to publish that summary; a hosted CI run is still pending.
 
 ## Scope and limits
 
 - Browser tests use Chromium, including mobile viewport emulation; they do not establish compatibility with Safari or Firefox.
-- Provider tests use controlled responses. Live metadata services and remote HTTPS termination were not exercised.
+- Provider tests use controlled responses. Live metadata services, remote certificate provisioning, and public CA validation were not exercised.
 - Storage checks cover temporary local files and Docker bind mounts. Network filesystems, power loss, and hostile concurrent filesystem changes are outside this evidence.
 - Dependency audits are point-in-time results. GitHub Actions is configured, but no hosted CI run or published release is claimed here.
 - The original-schema upgrade test is one supported migration path, not a complete upgrade matrix.

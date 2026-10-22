@@ -77,6 +77,26 @@ namespace Paparr.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Isbn13")
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
+
+                    b.Property<string>("IsbnStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(35)
+                        .HasColumnType("character varying(35)");
+
+                    b.Property<int?>("PublicationYear")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Publisher")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasColumnType("text");
@@ -312,6 +332,26 @@ namespace Paparr.API.Migrations
 
                     b.Property<long>("ImportJobId")
                         .HasColumnType("bigint");
+
+                    b.Property<string>("Isbn13")
+                        .HasMaxLength(13)
+                        .HasColumnType("character varying(13)");
+
+                    b.Property<string>("IsbnStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Language")
+                        .HasMaxLength(35)
+                        .HasColumnType("character varying(35)");
+
+                    b.Property<int?>("PublicationYear")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Publisher")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("Source")
                         .IsRequired()

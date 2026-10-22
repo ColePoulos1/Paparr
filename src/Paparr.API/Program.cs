@@ -5,6 +5,8 @@ using Paparr.API.Authentication;
 using Paparr.API.Data;
 using Paparr.API.Services;
 using Serilog;
+using Microsoft.OpenApi;
+using Swashbuckle.AspNetCore.Swagger;
 
 if (args is ["--hash-password"])
 {
@@ -12,7 +14,18 @@ if (args is ["--hash-password"])
     return;
 }
 
-var builder = WebApplication.CreateBuilder(args);
+string? schemaPath = null;
+if (args.Contains("--export-openapi"))
+{
+    if (args is not ["--export-openapi", var outputPath])
+    {
+        Console.Error.WriteLine("Usage: --export-openapi <output.json>");
+        Environment.ExitCode = 1;
+        return;
+    }
+    schemaPath = Path.GetFullPath(outputPath);
+}
+var builder = WebApplication.CreateBuilder(schemaPath is null ? args : []);
 builder.Host.UseDefaultServiceProvider(options =>
 {
     options.ValidateScopes = true;
@@ -22,7 +35,14 @@ builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom.Confi
     .WriteTo.Console().Enrich.FromLogContext());
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SupportNonNullableReferenceTypes();
+    options.NonNullableReferenceTypesAsRequired();
+    options.UseAllOfToExtendReferenceSchemas();
+    options.SchemaFilter<ResponseSchemaFilter>();
+    options.SchemaFilter<RequestSchemaFilter>();
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -51,6 +71,7 @@ builder.Services.AddScoped<ImportScanner>();
 builder.Services.AddScoped<SourceCleanupService>();
 builder.Services.AddScoped<LibraryAuditService>();
 builder.Services.AddScoped<LibraryDownloadService>();
+builder.Services.AddScoped<CalibreExportService>();
 builder.Services.AddSingleton<FileStabilityTracker>();
 builder.Services.AddSingleton<StableFileHashCache>();
 builder.Services.AddSingleton<MetadataProviderGateway>();
@@ -62,7 +83,15 @@ builder.Services.AddHttpClient<IMetadataEnricherService, MetadataEnricherService
     client.MaxResponseContentBufferSize = 2 * 1024 * 1024;
     client.DefaultRequestHeaders.UserAgent.ParseAdd("Paparr/0.2");
 });
-var app = builder.Build();
+await using var app = builder.Build();
+if (schemaPath is not null)
+{
+    // Export before host startup: no migrations, workers, or configured library access.
+    var document = app.Services.GetRequiredService<ISwaggerProvider>().GetSwagger("v1");
+    await using var stream = File.CreateText(schemaPath);
+    document.SerializeAsV3(new OpenApiJsonWriter(stream));
+    return;
+}
 app.UseExceptionHandler();
 app.UseForwardedHeaders();
 app.UseSerilogRequestLogging();

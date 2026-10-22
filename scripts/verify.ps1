@@ -14,6 +14,7 @@ try {
     $nodeMajor = (& node -p 'process.versions.node.split(".")[0]') -as [int]
     if ($nodeMajor -ne 24) { throw 'Verification requires Node 24. See .node-version.' }
     Invoke-Check pwsh @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'Test-Coverage.ps1'))
+    Invoke-Check pwsh @('-NoProfile', '-File', (Join-Path $PSScriptRoot 'Test-ReleaseBundle.ps1'))
     Invoke-Check dotnet @('build', 'Paparr.slnx', '--configuration', 'Release')
     Invoke-Check dotnet @('test', 'tests/Paparr.UnitTests', '--configuration', 'Release', '--no-build')
     if (!$SkipIntegration) {
@@ -23,6 +24,7 @@ try {
     Push-Location src/Paparr.UI
     try {
         if ($Install) { Invoke-Check npm @('ci') }
+        Invoke-Check node @('--run', 'api:check', '--', '--no-build')
         Invoke-Check node @('--run', 'lint')
         Invoke-Check node @('--run', 'test')
         Invoke-Check node @('--run', 'build')

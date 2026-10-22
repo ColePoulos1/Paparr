@@ -1,91 +1,29 @@
-export type Status =
-  | "Pending"
-  | "Processing"
-  | "AwaitingApproval"
-  | "Publishing"
-  | "Completed"
-  | "Failed";
-export interface Candidate {
-  id: number;
-  title: string;
-  author: string;
-  source: string;
-  externalId: string;
-  confidenceScore: number;
-  evidence: string;
-}
-export interface Book {
-  id: number;
-  title: string;
-  author: string;
-  source: string;
-  externalId: string;
-  importedAt: string;
-}
-export interface ImportJob {
-  id: number;
-  fileName: string;
-  status: Status;
-  createdAt: string;
-  updatedAt: string;
-  revision: string;
-  attemptCount: number;
-  lastError: string | null;
-  cleanup: {
-    status: "NotRequested" | "Pending" | "Completed" | "Retained";
-    attemptCount: number;
-    error: string | null;
-    canRetry: boolean;
-  };
-  candidates: Candidate[];
-  acceptedBook: Book | null;
-  events: { message: string; createdAt: string }[];
-}
-export interface Page {
-  items: ImportJob[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-export interface Preview {
-  relativePath: string;
-  destinationExists: boolean;
-  sourceRetained: boolean;
-}
-export interface DuplicatePage {
-  items: {
-    id: number;
-    fileName: string;
-    relativePath: string | null;
-    discoveredAt: string;
-  }[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
+import type {
+  BookDto, DuplicateSourceDtoPagedResult, EditionDto, ImportJobDto,
+  ImportJobDtoPagedResult, ImportPreviewDto, LibraryAuditDto, LibraryBookDto,
+  LibraryPageDto, MetadataCandidateDto, SessionDto,
+  WorkerDiagnosticsSnapshot,
+} from "./generated/types.gen";
+
+export type Status = ImportJobDto["status"];
+export type Candidate = MetadataCandidateDto;
+export type Book = BookDto;
+export type Edition = EditionDto;
+export type ImportJob = ImportJobDto;
+export type Page = ImportJobDtoPagedResult;
+export type Preview = ImportPreviewDto;
+export type DuplicatePage = DuplicateSourceDtoPagedResult;
 export type Summary = Record<Status, number>;
-export interface AuthSession {
-  enabled: boolean;
-  authenticated: boolean;
-  csrfToken: string | null;
-}
-export interface WorkerSnapshot {
-  enabled: boolean;
+export type AuthSession = SessionDto;
+export type WorkerSnapshot = Omit<WorkerDiagnosticsSnapshot, "state"> & {
   state: "Disabled" | "Starting" | "Running" | "Idle" | "Delayed";
-  startedAt: string;
-  lastProgressAt: string | null;
-  staleAfterSeconds: number;
-  currentStage: string | null;
-  stages: {
-    key: string;
-    state: "NotRun" | "Running" | "Succeeded" | "Failed" | "Canceled";
-    lastAttemptAt: string | null;
-    lastSuccessAt: string | null;
-    lastFailureAt: string | null;
-    lastDurationMs: number | null;
-    error: string | null;
-  }[];
-}
+};
+export type IntegrityStatus = LibraryBookDto["integrityStatus"];
+export type LibraryBook = LibraryBookDto;
+export type LibraryPage = Omit<LibraryPageDto, "counts"> & {
+  counts: Record<IntegrityStatus, number>;
+};
+export type LibraryAudit = LibraryAuditDto;
 
 let csrfToken: string | null = null;
 let sessionGeneration = 0;
@@ -155,8 +93,8 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   return (await fetchResponse(path, options)).json() as Promise<T>;
 }
 
-export async function downloadBook(id: number, signal: AbortSignal): Promise<void> {
-  const response = await fetchResponse(`/api/library/${id}/file`, { signal });
+export async function downloadBook(id: number, signal: AbortSignal, kind: "file" | "export" = "file"): Promise<void> {
+  const response = await fetchResponse(`/api/library/${id}/${kind}`, { signal });
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const encodedName = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
   const fileName = encodedName ? decodeURIComponent(encodedName)

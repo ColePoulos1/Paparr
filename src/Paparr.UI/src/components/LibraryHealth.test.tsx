@@ -2,19 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import LibraryHealth from "./LibraryHealth";
+import type { IntegrityStatus, LibraryBook } from "../api";
 
-type TestStatus =
-  "Unchecked" | "Verified" | "Missing" | "Changed" | "Unavailable";
-interface TestBook {
-  id: number;
-  title: string;
-  author: string;
-  relativePath: string | null;
-  importedAt: string;
-  integrityStatus: TestStatus;
-  checkedAt: string | null;
-  message: string | null;
-}
+type TestStatus = IntegrityStatus;
+type TestBook = LibraryBook;
 
 const book: TestBook = {
   id: 1,
@@ -25,6 +16,7 @@ const book: TestBook = {
   integrityStatus: "Unchecked" as const,
   checkedAt: null,
   message: null,
+  edition: null,
 };
 
 function library(

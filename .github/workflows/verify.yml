@@ -26,6 +26,7 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/Test-Coverage.ps1
+          ./scripts/Test-ReleaseBundle.ps1
           ./scripts/Measure-Coverage.ps1
           Get-Content .tools/backend-coverage.md -Raw | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
       - uses: actions/upload-artifact@v4
@@ -43,12 +44,16 @@ jobs:
         working-directory: src/Paparr.UI
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: src/Paparr.UI/package-lock.json
       - run: npm ci
+      - run: npm run api:check
       - run: npm run lint
       - run: npm run test
       - run: npm run build
@@ -59,6 +64,22 @@ jobs:
         with:
           name: browser-results
           path: src/Paparr.UI/playwright-report/
+  proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject spoofed proxy headers and verify local TLS
+        shell: pwsh
+        run: |
+          ./scripts/Test-ProxyTrust.ps1
+          ./scripts/Test-TlsDeployment.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tls-results
+          path: .tools/paparr-tls-*/results.json
+          include-hidden-files: true
   deployment:
     runs-on: ubuntu-latest
     timeout-minutes: 15

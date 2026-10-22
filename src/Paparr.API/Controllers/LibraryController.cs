@@ -49,16 +49,17 @@ public sealed class LibraryController(AppDbContext db, LibraryAuditService audit
         return Ok(new LibraryPageDto(books.Select(b => new LibraryBookDto(b.Id, b.Title, b.Author,
             b.FilePath is { } path && LibraryPaths.IsWithin(options.Value.LibraryPath, path)
                 ? Path.GetRelativePath(options.Value.LibraryPath, path).Replace('\\', '/') : null,
-            b.ImportedAt, b.IntegrityStatus.ToString(), b.IntegrityCheckedAt, b.IntegrityMessage)).ToList(),
+            b.ImportedAt, b.IntegrityStatus.ToString(), b.IntegrityCheckedAt, b.IntegrityMessage,
+            EditionDto.From(b.Isbn13, b.IsbnStatus, b.Publisher, b.PublicationYear, b.Language))).ToList(),
             total, page, pageSize, Enum.GetValues<IntegrityStatus>().ToDictionary(s => s.ToString(),
                 s => counts.FirstOrDefault(c => c.Status == s)?.Count ?? 0)));
     }
 
     [HttpGet("audits/latest")]
-    public async Task<ActionResult> GetLatest(CancellationToken ct)
+    public async Task<ActionResult<LatestLibraryAuditDto>> GetLatest(CancellationToken ct)
     {
         var audit = await db.LibraryAudits.AsNoTracking().OrderByDescending(a => a.Id).FirstOrDefaultAsync(ct);
-        return Ok(new { audit = audit is null ? null : LibraryAuditDto.From(audit) });
+        return Ok(new LatestLibraryAuditDto(audit is null ? null : LibraryAuditDto.From(audit)));
     }
 
     [HttpGet("audits/{id:long}")]

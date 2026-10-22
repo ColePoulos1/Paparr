@@ -3,7 +3,7 @@ using Paparr.API.Domain;
 namespace Paparr.API.Models;
 
 public sealed record LibraryBookDto(long Id, string Title, string Author, string? RelativePath,
-    DateTime ImportedAt, string IntegrityStatus, DateTime? CheckedAt, string? Message);
+    DateTime ImportedAt, string IntegrityStatus, DateTime? CheckedAt, string? Message, EditionDto? Edition = null);
 public sealed record LibraryPageDto(IReadOnlyList<LibraryBookDto> Items, int Total, int Page, int PageSize,
     IReadOnlyDictionary<string, int> Counts);
 public sealed record LibraryAuditDto(long Id, string Status, int TotalBooks, int ProcessedBooks, int VerifiedBooks,

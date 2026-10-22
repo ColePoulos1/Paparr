@@ -9,6 +9,16 @@ public sealed class MetadataTests
     private readonly MetadataService service = new();
 
     [Fact]
+    public async Task Pdf_metadata_with_null_character_allows_filename_fallback()
+    {
+        using var library = new TemporaryLibrary();
+        var path = Path.Combine(library.Ingest, "Fallback - Author.pdf");
+        PdfFixture.Write(path, "Bad\0 title", "Author");
+        Assert.Null(await service.ExtractPdfMetadataAsync(path));
+        Assert.Equal(("Fallback", "Author"), service.ParseFilename(path));
+    }
+
+    [Fact]
     public async Task Reads_metadata_from_an_actual_pdf()
     {
         using var library = new TemporaryLibrary();
@@ -36,11 +46,18 @@ public sealed class MetadataTests
         {
             Add(zip, "mimetype", "application/epub+zip");
             Add(zip, "META-INF/container.xml", """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""");
-            Add(zip, "content.opf", """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">test</dc:identifier><dc:title>Émile's Book</dc:title><dc:creator>Émile Zola</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/></manifest><spine><itemref idref="chapter"/></spine></package>""");
+            Add(zip, "content.opf", """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="unique-id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="unique-id">urn:isbn:0-306-40615-2</dc:identifier><dc:title>Émile's Book</dc:title><dc:creator>Émile Zola</dc:creator><dc:publisher>Éditions de Paris</dc:publisher><dc:date event="publication">2020-04-15</dc:date><dc:language>fr-FR</dc:language></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/></manifest><spine><itemref idref="chapter"/></spine></package>""");
             Add(zip, "chapter.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter</title></head><body><p>Fixture.</p></body></html>""");
             Add(zip, "nav.xhtml", """<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>Contents</title></head><body><nav epub:type="toc"><ol><li><a href="chapter.xhtml">Chapter</a></li></ol></nav></body></html>""");
         }
-        Assert.Equal(("Émile's Book", "Émile Zola"), await service.ExtractEpubMetadataAsync(path));
+        var metadata = await service.ExtractEpubMetadataAsync(path);
+        Assert.NotNull(metadata);
+        Assert.Equal(("Émile's Book", "Émile Zola"), (metadata.Title, metadata.Author));
+        var edition = EditionMetadataNormalizer.Create(metadata.Isbns, metadata.Publisher, metadata.PublicationDate, metadata.Language);
+        Assert.Equal("9780306406157", edition.Isbn13);
+        Assert.Equal("Éditions de Paris", edition.Publisher);
+        Assert.Equal(2020, edition.PublicationYear);
+        Assert.Equal("fr-fr", edition.Language);
     }
 
     [Theory]

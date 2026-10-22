@@ -1,47 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { request } from "../api";
+import type { IntegrityStatus, LibraryPage, LibraryAudit } from "../api";
+import type { LatestLibraryAuditDto } from "../generated/types.gen";
 import "./LibraryHealth.css";
 import BookDownload from "./BookDownload";
+import EditionDetails from "./EditionDetails";
+import { hasEditionDetails } from "../edition";
 
-type IntegrityStatus =
-  "Unchecked" | "Verified" | "Missing" | "Changed" | "Unavailable";
-type AuditStatus = "Queued" | "Running" | "Completed";
-
-interface LibraryBook {
-  id: number;
-  title: string;
-  author: string;
-  relativePath: string | null;
-  importedAt: string;
-  integrityStatus: IntegrityStatus;
-  checkedAt: string | null;
-  message: string | null;
-}
-
-interface LibraryPage {
-  items: LibraryBook[];
-  total: number;
-  page: number;
-  pageSize: number;
-  counts: Record<IntegrityStatus, number>;
-}
-
-interface LibraryAudit {
-  id: number;
-  status: AuditStatus;
-  totalBooks: number;
-  processedBooks: number;
-  verifiedBooks: number;
-  missingBooks: number;
-  changedBooks: number;
-  unavailableBooks: number;
-  createdAt: string;
-  completedAt: string | null;
-}
-
-interface LatestAuditResponse {
-  audit: LibraryAudit | null;
-}
+type LatestAuditResponse = LatestLibraryAuditDto;
 
 const filters: { label: string; value: IntegrityStatus | null }[] = [
   { label: "All books", value: null },
@@ -403,7 +369,13 @@ export default function LibraryHealth() {
                     <td>
                       <strong>{book.title}</strong>
                       <span>{book.author}</span>
-                      <BookDownload id={book.id} title={book.title} />
+                      {hasEditionDetails(book.edition) && (
+                        <details><summary>Edition details</summary><EditionDetails edition={book.edition} /></details>
+                      )}
+                      <div className="library-actions">
+                        <BookDownload id={book.id} title={book.title} />
+                        <BookDownload id={book.id} title={book.title} kind="export" />
+                      </div>
                     </td>
                     <td>
                       <code title={book.relativePath ?? undefined}>

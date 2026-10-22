@@ -8,6 +8,25 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("downloads a Calibre handoff archive from the verified export endpoint", async () => {
+  vi.stubGlobal("URL", class extends URL {
+    static createObjectURL = vi.fn(() => "blob:handoff");
+    static revokeObjectURL = vi.fn();
+  });
+  const fetchMock = vi.fn(async () => new Response("zip bytes", {
+    headers: { "Content-Disposition": 'attachment; filename="Atlas-calibre.zip"', "Content-Type": "application/zip" },
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  let filename = "";
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+    filename = this.download;
+  });
+  render(<BookDownload id={3} title="Atlas" kind="export" />);
+  await userEvent.setup().click(screen.getByRole("button", { name: "Export Atlas for Calibre" }));
+  expect(fetchMock).toHaveBeenCalledWith("/api/library/3/export", expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(filename).toBe("Atlas-calibre.zip");
+});
+
 it("downloads verified bytes using the server's Unicode attachment filename", async () => {
   const create = vi.fn(() => "blob:verified-book");
   vi.stubGlobal(

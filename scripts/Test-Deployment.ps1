@@ -1,6 +1,7 @@
 param(
     [int]$Port = 5188,
     [switch]$Browser,
+    [switch]$Calibre,
     [switch]$KeepRunning
 )
 $ErrorActionPreference = 'Stop'
@@ -148,6 +149,22 @@ try {
     Invoke-WebRequest "$baseUrl/api/library/$($imported.acceptedBook.id)/file" -WebSession $ownerSession -OutFile $downloadPath
     Assert-Equal $expectedHash (Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash 'Authenticated download hash'
     $checks.Add('Owner-only download verifies and returns the published file')
+    $exportPath = Join-Path $testRoot 'atlas-calibre.zip'
+    Assert-Equal 401 (Invoke-WebRequest "$baseUrl/api/library/$($imported.acceptedBook.id)/export" -SkipHttpErrorCheck).StatusCode 'Anonymous Calibre export'
+    Invoke-WebRequest "$baseUrl/api/library/$($imported.acceptedBook.id)/export" -WebSession $ownerSession -OutFile $exportPath
+    $exportArchive = [IO.Compression.ZipFile]::OpenRead($exportPath)
+    try {
+        Assert-Equal 3 $exportArchive.Entries.Count 'Calibre export entry count'
+        $entryStream = $exportArchive.GetEntry('book.epub').Open()
+        try { $exportHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($entryStream)) }
+        finally { $entryStream.Dispose() }
+        Assert-Equal $expectedHash $exportHash 'Calibre export retains verified book bytes'
+    } finally { $exportArchive.Dispose() }
+    $checks.Add('Owner-only Calibre export contains the verified book and metadata sidecar')
+    if ($Calibre) {
+        & (Join-Path $PSScriptRoot 'Test-CalibreExport.ps1') -ArchivePath $exportPath
+        $checks.Add('Installed Calibre imports the exported copy into an isolated library')
+    }
     Invoke-Compose -Arguments @('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120')
     Assert-Equal $summary (Invoke-RestMethod "$baseUrl/api/imports/summary" -WebSession $ownerSession | ConvertTo-Json -Compress) 'Session after recreation'
     $signedOut = Invoke-RestMethod "$baseUrl/api/auth/logout" -WebSession $ownerSession -Method Post `
@@ -160,6 +177,10 @@ try {
             ConvertTo-Json -Compress | & node (Join-Path $PSScriptRoot 'Test-Browser.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Packaged browser checks failed.' }
         $checks.Add('Packaged desktop/mobile UI signs in, reviews missing metadata, imports, scans, and revokes sessions')
+        if ($Calibre) {
+            & (Join-Path $PSScriptRoot 'Test-CalibreExport.ps1') -ArchivePath (Join-Path $testRoot 'browser/calibre-notebook.zip')
+            $checks.Add('Installed Calibre preserves manually approved edition metadata from the browser export')
+        }
     }
     $evidence = Join-Path $testRoot 'results.json'
     @{ project = $project; completedAt = [DateTime]::UtcNow.ToString('o'); checks = @($checks); libraryHash = $expectedHash } |

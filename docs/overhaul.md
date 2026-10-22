@@ -6,12 +6,12 @@
 | --- | --- | --- |
 | Foundation | AGENTS.md, five project skills, SDK/runtime settings, verification script, CI, dependency updates, measured source coverage | Published CI history and coverage trends |
 | Safe imports | Durable queue, revision guards, leases, verified publication, collision protection, explicit retry, durable source cleanup | Staging-file maintenance |
-| Metadata | Real PDF/EPUB parsing, provenance, matching evidence, provider isolation, bounded cache, cooldowns | Edition identifiers, calibrated automatic decisions |
-| Review experience | TypeScript workspace, search, paging, manual edits, destination previews, timeline, draft preservation | Generated API types and richer metadata comparison |
-| Product features | Read-only resumable integrity scans, library health screen, duplicate-file history, verified downloads, synthetic offline demo | Edition comparison, safe undo, folder profiles |
-| Library integration | Portable standalone library structure | Explicit Calibre handoff and edition/file model |
-| Operations | Same-origin proxy, non-root containers, persistent storage, owner sign-in, CSRF/host/origin checks, worker stage diagnostics, tested restoration | Remote TLS deployment checks and staging maintenance |
-| Release | Screenshots, architecture notes, changelog, repeatable deployment checks, discovery hashing benchmark | Release packaging, full upgrade matrix and ingestion throughput measurements |
+| Metadata | Real PDF/EPUB parsing, provenance, matching evidence, provider isolation, bounded cache, cooldowns, checked ISBNs and edition details | Calibration against labeled real-world decisions |
+| Review experience | Generated API types with drift checks, search, paging, manual edition choices, destination previews, timeline, draft preservation | More comparative review tools as library size grows |
+| Product features | Edition details in review, read-only resumable integrity scans, library health, duplicate-file history, verified downloads, synthetic offline demo | Safe undo and folder profiles |
+| Library integration | Portable standalone library structure and explicit verified Calibre handoff | Separate edition/file model and synchronization design |
+| Operations | Same-origin proxy, non-root containers, persistent storage, owner sign-in, CSRF/host/origin checks, worker diagnostics, tested restoration, proxy trust regression and local TLS checks | Public TLS provisioning and staging maintenance |
+| Release | Screenshots, architecture notes, repeatable deployment checks, reproducible source packaging, hashing and offline ingestion harnesses | Published CI history, full upgrade matrix, sustained/larger-book throughput measurements |
 
 ## Acceptance criteria exercised
 
@@ -33,6 +33,6 @@ The original builds passed, but there were no automated tests. PDF extraction us
 
 ## Next implementation priorities
 
-1. Edition identifiers and comparison, and an explicit Calibre export workflow.
+1. Staging ownership journal and fenced maintenance; legacy temporary files have no provable owner.
 2. Retained-source undo with previews and filesystem/database recovery tests.
-3. Staging maintenance and full ingestion throughput measurements.
+3. Folder profiles, edition/file modeling, and larger ingestion workloads.

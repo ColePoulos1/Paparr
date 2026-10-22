@@ -4,9 +4,11 @@ import { downloadBook } from "../api";
 export default function BookDownload({
   id,
   title,
+  kind = "file",
 }: {
   id: number;
   title: string;
+  kind?: "file" | "export";
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +22,7 @@ export default function BookDownload({
     setBusy(true);
     setError("");
     try {
-      await downloadBook(id, controller.signal);
+      await downloadBook(id, controller.signal, kind);
     } catch (reason) {
       if (!controller.signal.aborted)
         setError(
@@ -38,11 +40,12 @@ export default function BookDownload({
     <>
       <button
         className="text-button library-download"
-        aria-label={`Download ${title}`}
+        aria-label={kind === "export" ? `Export ${title} for Calibre` : `Download ${title}`}
         disabled={busy}
         onClick={() => void download()}
       >
-        {busy ? "Verifying download…" : "Download"}
+        {busy ? (kind === "export" ? "Preparing export…" : "Verifying download…")
+          : (kind === "export" ? "Export for Calibre" : "Download")}
       </button>
       {error && (
         <small className="library-message" role="alert">

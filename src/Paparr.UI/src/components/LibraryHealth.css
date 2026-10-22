@@ -217,6 +217,8 @@
   display: block;
 }
 
+.library-actions { display: flex; flex-wrap: wrap; gap: 0 14px; }
+.library-actions [role="alert"] { flex-basis: 100%; }
 .library-download { margin-top: 8px; font-size: 11px; }
 
 .library-table td strong {

@@ -10,20 +10,35 @@ public sealed record ImportJobDto(long Id, string FileName, string Status, DateT
     public static ImportJobDto From(ImportJob job, bool cleanupEnabled = false) => new(job.Id, Path.GetFileName(job.FilePath), job.Status.ToString(),
         job.CreatedAt, job.UpdatedAt, job.Revision, job.AttemptCount, job.LastError,
         job.Candidates.OrderByDescending(c => c.ConfidenceScore).ThenBy(c => c.Id)
-            .Select(c => new MetadataCandidateDto(c.Id, c.Title, c.Author, c.Source, c.ExternalId, c.ConfidenceScore, c.Evidence)).ToList(),
-        job.AcceptedBook is { } b ? new BookDto(b.Id, b.Title, b.Author, b.Source, b.ExternalId, b.ImportedAt) : null,
+            .Select(c => new MetadataCandidateDto(c.Id, c.Title, c.Author, c.Source, c.ExternalId, c.ConfidenceScore, c.Evidence,
+                EditionDto.From(c.Isbn13, c.IsbnStatus, c.Publisher, c.PublicationYear, c.Language))).ToList(),
+        job.AcceptedBook is { } b ? new BookDto(b.Id, b.Title, b.Author, b.Source, b.ExternalId, b.ImportedAt,
+            EditionDto.From(b.Isbn13, b.IsbnStatus, b.Publisher, b.PublicationYear, b.Language)) : null,
         job.Events.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id).Select(e => new ImportEventDto(e.Message, e.CreatedAt)).ToList(),
         new SourceCleanupDto(job.CleanupStatus.ToString(), job.CleanupAttemptCount, job.CleanupError,
             cleanupEnabled && job.CleanupStatus == SourceCleanupStatus.Retained));
 }
 
 public sealed record SourceCleanupDto(string Status, int AttemptCount, string? Error, bool CanRetry);
-public sealed record MetadataCandidateDto(long Id, string Title, string Author, string Source, string ExternalId, decimal ConfidenceScore, string Evidence);
-public sealed record BookDto(long Id, string Title, string Author, string Source, string ExternalId, DateTime ImportedAt);
+public sealed record MetadataCandidateDto(long Id, string Title, string Author, string Source, string ExternalId,
+    decimal ConfidenceScore, string Evidence, EditionDto? Edition = null);
+public sealed record BookDto(long Id, string Title, string Author, string Source, string ExternalId, DateTime ImportedAt,
+    EditionDto? Edition = null);
+public sealed record EditionDto(string? Isbn13, string IsbnStatus, string? Publisher, int? PublicationYear, string? Language)
+{
+    public static EditionDto From(string? isbn13, EditionIsbnStatus isbnStatus, string? publisher, int? publicationYear, string? language) =>
+        new(isbn13, isbnStatus.ToString(), publisher, publicationYear, language);
+}
 public sealed record ImportEventDto(string Message, DateTime CreatedAt);
 public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
 public sealed record ImportPreviewDto(string RelativePath, bool DestinationExists, bool SourceRetained);
 public sealed record DuplicateSourceDto(long Id, string FileName, string? RelativePath, DateTime DiscoveredAt);
 public sealed record EditMetadataRequest(
     [Required, StringLength(300, MinimumLength = 1)] string Title,
-    [Required, StringLength(300, MinimumLength = 1)] string Author);
+    [Required, StringLength(300, MinimumLength = 1)] string Author,
+    EditionInputDto? Edition = null);
+public sealed record EditionInputDto(
+    [StringLength(64)] string? Isbn,
+    [StringLength(300)] string? Publisher,
+    [Range(1000, 9999)] int? PublicationYear,
+    [StringLength(35)] string? Language);

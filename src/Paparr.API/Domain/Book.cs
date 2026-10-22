@@ -12,6 +12,11 @@ public class Book
     public IntegrityStatus IntegrityStatus { get; set; }
     public DateTime? IntegrityCheckedAt { get; set; }
     public string? IntegrityMessage { get; set; }
+    public string? Isbn13 { get; set; }
+    public EditionIsbnStatus IsbnStatus { get; set; } = EditionIsbnStatus.NotProvided;
+    public string? Publisher { get; set; }
+    public int? PublicationYear { get; set; }
+    public string? Language { get; set; }
 
     public long? ImportJobId { get; set; }
     public ImportJob? ImportJob { get; set; }

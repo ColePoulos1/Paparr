@@ -43,9 +43,11 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
                 await FailAsync(job, "The source changed after discovery. Restore the original file or import the changed copy.", cancellationToken);
                 return;
             }
-            var embedded = Path.GetExtension(job.FilePath).ToLowerInvariant() switch
+            EmbeddedEpubMetadata? epubMetadata = null;
+            var extension = Path.GetExtension(job.FilePath).ToLowerInvariant();
+            var embedded = extension switch
             {
-                ".epub" => await metadata.ExtractEpubMetadataAsync(job.FilePath, cancellationToken),
+                ".epub" => ToTitleAuthor(epubMetadata = await metadata.ExtractEpubMetadataAsync(job.FilePath, cancellationToken)),
                 ".pdf" => await metadata.ExtractPdfMetadataAsync(job.FilePath, cancellationToken),
                 _ => throw new InvalidDataException("Unsupported ebook format.")
             };
@@ -54,6 +56,8 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             job.Candidates.Clear();
             if (extracted is { } book)
             {
+                var edition = epubMetadata is null ? null : EditionMetadataNormalizer.Create(epubMetadata.Isbns,
+                    epubMetadata.Publisher, epubMetadata.PublicationDate, epubMetadata.Language);
                 job.Candidates.Add(new MetadataCandidate
                 {
                     Title = book.Title,
@@ -62,6 +66,11 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
                     ExternalId = "",
                     ConfidenceScore = embedded.HasValue ? 85 : 60,
                     Evidence = embedded.HasValue ? "Read from the ebook metadata." : "Parsed from the filename; review before importing.",
+                    Isbn13 = edition?.Isbn13,
+                    IsbnStatus = edition?.IsbnStatus ?? EditionIsbnStatus.NotProvided,
+                    Publisher = edition?.Publisher,
+                    PublicationYear = edition?.PublicationYear,
+                    Language = edition?.Language,
                     CreatedAt = Now
                 });
                 var openLibrary = await providers.QueryOpenLibraryAsync(book.Title, book.Author, job.Id, cancellationToken);
@@ -127,6 +136,11 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             Author = candidate.Author,
             Source = candidate.Source,
             ExternalId = candidate.ExternalId,
+            Isbn13 = candidate.Isbn13,
+            IsbnStatus = candidate.IsbnStatus,
+            Publisher = candidate.Publisher,
+            PublicationYear = candidate.PublicationYear,
+            Language = candidate.Language,
             FilePath = job.DestinationPath,
             ImportedAt = Now,
             IntegrityStatus = IntegrityStatus.Verified,
@@ -165,4 +179,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
         job.UpdatedAt = Now;
         job.Events.Add(new ImportEvent { Message = message, CreatedAt = Now });
     }
+
+    private static (string Title, string Author)? ToTitleAuthor(EmbeddedEpubMetadata? metadata) =>
+        metadata is null ? null : (metadata.Title, metadata.Author);
 }

@@ -12,15 +12,17 @@ Paparr keeps an import history and verifies file content before publication. Ori
 - Duplicate-file history that explains skipped copies while leaving their files untouched.
 - EPUB and PDF metadata extraction, with filename fallback.
 - Open Library and Google Books candidates with source labels, matching evidence, caching, and rate-limit handling.
+- Edition details with ISBN checksum checks, publisher, publication year, and language.
 - A responsive review workspace with search, pagination, manual metadata, destination previews, and event history.
 - Collision-safe publication, content verification, bounded attempts, retry, and recovery of interrupted jobs.
 - Resumable integrity scans that identify missing, changed, and unreadable library files without modifying them.
 - Worker status with stage progress, sanitized failures, and delay indicators.
 - Owner-only library downloads with content verification and byte-range support.
+- Calibre handoff archives with a verified book copy and approved metadata sidecar.
 - Same-origin Docker deployment with persistent PostgreSQL storage.
 - Owner sign-in with revocable sessions, CSRF protection, and sign-in rate limits.
 
-All imports currently require review. Match scores describe title/author similarity; they are not probabilities. Paparr organizes files into its own library directory. Direct integration with a Calibre database is planned.
+All imports currently require review. Match scores describe title/author similarity; they are not probabilities. Paparr organizes files into its own library directory. Calibre exports provide an explicit handoff; Paparr does not write to a Calibre database.
 
 ## Run
 
@@ -62,4 +64,4 @@ Read the [development guide](DEVELOPMENT_GUIDE.md), [architecture](docs/architec
 
 ## Project status
 
-Paparr is an early project undergoing an overhaul. Richer edition matching, undo, and Calibre integration remain planned work. See the [changelog](CHANGELOG.md) for the current release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [discovery benchmark](docs/performance.md) for measured cache behavior.
+Paparr is an early project undergoing an overhaul. Undo, folder profiles, and staging maintenance remain planned work. See the [changelog](CHANGELOG.md) for the current release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [benchmarks](docs/performance.md) for measured behavior.

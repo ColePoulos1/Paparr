@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import ReviewPanel from "./ReviewPanel";
+import type { ImportJob } from "../api";
 import { emptyDuplicates, job, preview } from "../test/fixtures";
 
 beforeEach(() =>
@@ -13,6 +14,32 @@ beforeEach(() =>
 
 afterEach(() => vi.unstubAllGlobals());
 
+it("compares provider edition details and keeps the chosen edition attached to approval", async () => {
+  const choices: ImportJob = {
+    ...job,
+    candidates: job.candidates.map((item, index) => ({ ...item, edition: {
+      isbn13: index === 0 ? "9780306406157" : null,
+      isbnStatus: index === 0 ? "Valid" : "Ambiguous",
+      publisher: index === 0 ? "First Press" : "Second Press",
+      publicationYear: index === 0 ? 2020 : 2021,
+      language: "en",
+    } })),
+  };
+  const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.includes("/duplicates?") ? emptyDuplicates : url.includes("/accept/") ? choices : preview,
+  )));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  render(<ReviewPanel job={choices} onChange={vi.fn()} />);
+  expect(screen.getByText("9780306406157")).toBeVisible();
+  expect(screen.getByText("Multiple ISBNs reported")).toBeVisible();
+  expect(screen.getByText(/does not confirm that it belongs to this file/)).toBeVisible();
+  await user.click(screen.getAllByRole("radio")[1]);
+  await screen.findByText(preview.relativePath);
+  await user.click(screen.getByRole("button", { name: "Approve & import" }));
+  expect(fetchMock).toHaveBeenCalledWith("/api/imports/1/accept/12", expect.objectContaining({ method: "POST" }));
+});
+
 it("renders awaiting approval when the provider found no complete metadata", () => {
   const withoutCandidates = { ...job, candidates: [] };
 
@@ -23,6 +50,29 @@ it("renders awaiting approval when the provider found no complete metadata", () 
   ).toBeVisible();
   expect(screen.getByRole("button", { name: "Edit details" })).toBeVisible();
   expect(screen.getByText(/No complete metadata was found/)).toBeVisible();
+});
+
+it("preserves an edition-only draft across refresh and sends explicit edition fields", async () => {
+  const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(
+    url.includes("/duplicates?") ? emptyDuplicates : url.includes("/metadata") ? job : preview,
+  )));
+  vi.stubGlobal("fetch", fetchMock);
+  const user = userEvent.setup();
+  const onDraftChange = vi.fn();
+  const props = { onChange: vi.fn(), onDraftChange };
+  const { rerender } = render(<ReviewPanel job={job} {...props} />);
+  await user.click(screen.getByRole("button", { name: "Edit details" }));
+  await user.type(screen.getByRole("textbox", { name: "ISBN (optional)" }), "0-306-40615-2");
+  await user.type(screen.getByRole("textbox", { name: "Publisher (optional)" }), "My Press");
+  await user.type(screen.getByRole("spinbutton", { name: "Publication year (optional)" }), "2020");
+  expect(onDraftChange).toHaveBeenLastCalledWith(job, true);
+  rerender(<ReviewPanel job={{ ...job, revision: "updated" }} {...props} />);
+  expect(screen.getByRole("textbox", { name: "ISBN (optional)" })).toHaveValue("0-306-40615-2");
+  await user.click(screen.getByRole("button", { name: "Save metadata choice" }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/imports/1/metadata", expect.objectContaining({
+    body: JSON.stringify({ title: job.candidates[0].title, author: job.candidates[0].author,
+      edition: { isbn: "0-306-40615-2", publisher: "My Press", publicationYear: 2020, language: null } }),
+  })));
 });
 
 it("renders retry for a failed import without metadata candidates", () => {
@@ -205,6 +255,7 @@ it("retries source cleanup when the completed import says it can be retried", as
       source: "embedded",
       externalId: "",
       importedAt: job.updatedAt,
+      edition: null,
     },
     cleanup: {
       status: "Retained" as const,

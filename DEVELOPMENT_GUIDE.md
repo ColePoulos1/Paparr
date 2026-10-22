@@ -27,6 +27,7 @@ Frontend tests:
 ```sh
 cd src/Paparr.UI
 npm run lint
+npm run api:check
 npm test
 npm run build
 npm run test:e2e
@@ -35,6 +36,8 @@ npm run test:e2e
 Browser tests exercise the UI against controlled HTTP responses. PostgreSQL integration tests separately exercise the real API, database, worker, and filesystem. Run `pwsh scripts/Test-Deployment.ps1` for the packaged application and backup restoration. It uses synthetic files, a unique Compose project, and port 5188 by default. `-KeepRunning` leaves its demo available; otherwise it removes its own containers, images, and database volume while retaining the local evidence files under `.tools`.
 
 Add `-Browser` to exercise the packaged UI against its real API on desktop and mobile. This requires the UI's installed dependencies and Playwright Chromium. CI runs this mode and saves screenshots on completion or failure.
+
+`pwsh scripts/Test-ReleaseBundle.ps1` checks source packaging with a disposable Git repository, including dirty-tree rejection, deterministic archives, hashes, and excluded local data. After committing a verified checkpoint, create a source bundle with `pwsh scripts/New-ReleaseBundle.ps1 -Destination .tools/release-checkpoint`. Create `.tools` first if it does not exist. The destination must be new; the script packages the exact clean `HEAD` and refuses tracked environment files, runtime data, links, and submodules. Its manifest records the commit and archive hash. It produces source for a local build, not signed binaries or published images.
 
 ## Coverage
 
@@ -64,6 +67,12 @@ npm run dev
 ```
 
 The UI at http://localhost:5173 proxies API requests to http://localhost:5000. Swagger is available at http://localhost:5000/swagger in Development. Production uses the same-origin Nginx proxy.
+
+## API contracts
+
+Run `npm run api:generate` from `src/Paparr.UI` after changing a request or response model, then commit `src/generated`. `npm run api:check` and the verification script reject stale generated files. Generation uses the Release API's OpenAPI export without starting the host, connecting to PostgreSQL, running migrations, or accessing configured libraries. No running API or owner credentials are needed.
+
+The UI derives its wire shapes and domain status values from these files. A small worker display-state union remains local. Request constructor validation, enum names, and explicit nullable response fields are covered by contract tests. Generated types check compile-time use; they do not validate arbitrary JSON at runtime.
 
 ## Migrations
 

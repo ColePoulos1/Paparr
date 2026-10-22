@@ -1,4 +1,30 @@
-# Discovery hashing microbenchmark
+# Performance harnesses
+
+## Offline ingestion pipeline
+
+`tools/Paparr.IngestionBenchmarks` starts a disposable PostgreSQL container and a test host, creates distinct synthetic PDF/EPUB files, discovers stable files, extracts metadata, explicitly approves each choice through the ingestion service, publishes verified copies, and runs an integrity scan. It verifies every published hash and retained original. The background timer and external providers are disabled; the driver advances the stability clock by five seconds instead of sleeping. Container startup, migrations, and fixture creation are measured separately.
+
+```powershell
+dotnet run --configuration Release --project tools/Paparr.IngestionBenchmarks -- --files 10 --output .tools/ingestion-run.json
+```
+
+`--files` accepts 2–100, default 10. Output files are created without replacement. The harness uses only its own temporary roots and database and removes them when finished.
+
+One Windows x64 run on October 21, 2026, with .NET 10.0.9 and eight logical processors, processed ten tiny fixtures totaling 8,777 bytes:
+
+| Phase | Elapsed |
+| --- | ---: |
+| Initial discovery observation | 20 ms |
+| Stable-file discovery and persistence | 661 ms |
+| Metadata extraction and review queue | 807 ms |
+| Explicit approval and publication | 322 ms |
+| Integrity scan | 329 ms |
+| PostgreSQL container startup | 8,845 ms |
+| Host startup and migrations | 2,125 ms |
+
+All ten imports completed, all original and published bytes matched, and all ten audit results were verified. Raw local evidence is `.tools/ingestion-20261021.json`. These are observations from a small offline workload, not a sustained throughput or large-book benchmark. The harness calls the real services directly; it does not measure review time, HTTP overhead, provider latency, background scheduling, or network storage. Docker and filesystem cache state affect timings.
+
+## Discovery hashing microbenchmark
 
 `tools/Paparr.Benchmarks` compares repeated discovery hashing with and without the stable-file hash cache. It creates synthetic files in a unique temporary directory, performs an isolated hash warmup, measures uncached hashing first and cached hashing second, and emits JSON with elapsed time, actual hash calls, bytes hashed, runtime details, and matching aggregate hashes. It deletes only the temporary directory it created. An explicitly requested `--output` file is created without overwriting an existing file.
 

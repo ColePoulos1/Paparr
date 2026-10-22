@@ -2,7 +2,10 @@ namespace Paparr.API.Services;
 
 public interface IMetadataService
 {
-    Task<(string Title, string Author)?> ExtractEpubMetadataAsync(string filePath, CancellationToken cancellationToken = default);
+    Task<EmbeddedEpubMetadata?> ExtractEpubMetadataAsync(string filePath, CancellationToken cancellationToken = default);
     Task<(string Title, string Author)?> ExtractPdfMetadataAsync(string filePath, CancellationToken cancellationToken = default);
     (string Title, string Author)? ParseFilename(string filename);
 }
+
+public sealed record EmbeddedEpubMetadata(string Title, string Author, IReadOnlyList<string> Isbns, string? Publisher,
+    string? PublicationDate, string? Language);

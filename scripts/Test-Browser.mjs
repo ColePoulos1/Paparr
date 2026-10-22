@@ -30,6 +30,10 @@ try {
   await page.getByRole("button", { name: "Edit details", exact: true }).click();
   await page.getByLabel("Title", { exact: true }).fill("A Reader's Notebook");
   await page.getByLabel("Author", { exact: true }).fill("Demo Author");
+  await page.getByLabel("ISBN (optional)", { exact: true }).fill("0-306-40615-2");
+  await page.getByLabel("Publisher (optional)", { exact: true }).fill("Éditions & Compagnie");
+  await page.getByLabel("Publication year (optional)", { exact: true }).fill("2020");
+  await page.getByLabel("Language tag (optional)", { exact: true }).fill("fr");
   await page.getByRole("button", { name: "Save metadata choice", exact: true }).click();
   await expect(page.getByText("DESTINATION PREVIEW", { exact: true })).toBeVisible();
   await page.screenshot({ path: join(outputDirectory, "review-desktop.png"), fullPage: true });
@@ -41,6 +45,8 @@ try {
   const accepted = await approval.json();
   expect(accepted.status).toBe("Completed");
   expect(accepted.acceptedBook.title).toBe("A Reader's Notebook");
+  expect(accepted.acceptedBook.edition.isbn13).toBe("9780306406157");
+  expect(accepted.acceptedBook.edition.publisher).toBe("Éditions & Compagnie");
   await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
   const notebook = page.getByRole("button", { name: /A Reader's Notebook/ });
   await expect(notebook).toContainText("Imported");
@@ -61,6 +67,11 @@ try {
   const downloadPath = join(outputDirectory, "downloaded-atlas.epub");
   await downloaded.saveAs(downloadPath);
   expect(createHash("sha256").update(await readFile(downloadPath)).digest("hex").toUpperCase()).toBe(expectedHash);
+  const exportEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export A Reader's Notebook for Calibre", exact: true }).click();
+  const exported = await exportEvent;
+  expect(exported.suggestedFilename()).toBe(`paparr-book-${accepted.acceptedBook.id}.zip`);
+  await exported.saveAs(join(outputDirectory, "calibre-notebook.zip"));
   await page.screenshot({ path: join(outputDirectory, "library-desktop.png"), fullPage: true });
   expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await page.getByRole("button", { name: "Worker status", exact: true }).click();

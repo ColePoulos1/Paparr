@@ -78,6 +78,10 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Source).IsRequired();
             entity.Property(e => e.ExternalId).IsRequired();
             entity.Property(e => e.IntegrityStatus).HasConversion<string>();
+            entity.Property(e => e.Isbn13).HasMaxLength(13);
+            entity.Property(e => e.IsbnStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Publisher).HasMaxLength(300);
+            entity.Property(e => e.Language).HasMaxLength(35);
             entity.HasIndex(e => e.IntegrityStatus);
 
             entity.HasOne(e => e.ImportJob)
@@ -93,6 +97,10 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Author).IsRequired();
             entity.Property(e => e.Source).IsRequired();
             entity.Property(e => e.ExternalId).IsRequired();
+            entity.Property(e => e.Isbn13).HasMaxLength(13);
+            entity.Property(e => e.IsbnStatus).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Publisher).HasMaxLength(300);
+            entity.Property(e => e.Language).HasMaxLength(35);
 
             entity.HasOne(c => c.ImportJob)
                 .WithMany(j => j.Candidates)

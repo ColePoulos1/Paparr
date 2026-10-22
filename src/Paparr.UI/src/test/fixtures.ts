@@ -27,6 +27,7 @@ export const job: ImportJob = {
       externalId: "",
       confidenceScore: 85,
       evidence: "Read from the ebook metadata.",
+      edition: null,
     },
     {
       id: 12,
@@ -36,6 +37,7 @@ export const job: ImportJob = {
       externalId: "/works/OL1W",
       confidenceScore: 81,
       evidence: "Title match 68/100; author match 100/100.",
+      edition: null,
     },
   ],
   events: [

@@ -51,6 +51,10 @@ Operations check root containment and reject symbolic links/reparse points. Papa
 
 VersOne.Epub reads EPUB metadata; PdfPig reads PDF metadata. Filename fallback splits at the last spaced dash. Choices expose their origin and matching evidence. Similarity scores are not calibrated probabilities; every import requires approval.
 
+Edition fields travel with each candidate and the approved book. ISBN-10 values convert to ISBN-13 only after checksum validation. Missing, invalid, and multiple distinct valid identifiers have different states; ambiguous identifiers are not reduced to a guessed ISBN. Publisher, year, and language are bounded optional values. Open Library search results summarize works and can span editions, so only individually unambiguous fields are shown and their evidence carries that caveat. [Open Library's search documentation](https://openlibrary.org/dev/docs/api/search) explains the work/edition distinction.
+
+Manual title/author choices do not inherit another candidate's edition fields. Reviewers can explicitly enter optional edition details; the server derives ISBN status and rejects invalid field lengths and year bounds. A valid checksum does not establish that an ISBN belongs to the ebook's bytes. Existing records receive empty edition details through an additive migration.
+
 Provider parsing skips malformed items independently. HTTP responses have a 2 MiB limit and a 10-second deadline covering headers and body. A shared gateway caches successful JSON for 15 minutes, with 128-entry and 16 MiB limits. Concurrent identical requests share a fetch; up to eight distinct fetches can run. Canceling a caller stops its wait while shared work remains bounded by its deadline.
 
 Rate limits honor Retry-After up to five minutes. Transient failures impose a 30-second provider cooldown. Providers remain independent, and failures leave local metadata available. Cache and cooldown state are process-local.
@@ -67,6 +71,8 @@ Downloads require owner access and a linked original hash. The service validates
 
 Verification and serving share one open handle to avoid reopening a replaced path. On Unix, another local process can still modify bytes in place while a response is sent; Paparr should own its library directory. The web client buffers the response so it can display download failures without leaving the library screen. Its memory use depends on file size; direct API clients can use byte ranges.
 
+Calibre exports reuse that verified stream and copy its bytes into a private, non-cached ZIP with fixed entry names. An OPF sidecar records approved metadata, while a static README describes the client-side handoff. XML writing escapes metadata and removes characters XML cannot represent; title and author values beyond 64K characters return an actionable error. A year-only publication value stays year-only. No Calibre process runs on the server and no stored ebook or database record changes. Archives are buffered in memory and inherit the configured file-size limit.
+
 ## Deployment boundary
 
 Worker diagnostics keep a process-local snapshot of queued work, cleanup, integrity, and discovery phases. Each phase records attempt, success, and failure times, a monotonic duration, and a curated error without paths or exception text. Delays measure elapsed time since progress; a delay is a signal to inspect ongoing work, not proof of deadlock. The owner-only endpoint disables response caching. Snapshots reset on restart and represent the serving instance, while PostgreSQL job and audit records remain the durable history.
@@ -79,6 +85,6 @@ ASP.NET cookie authentication protects a random session reference; PostgreSQL st
 
 Every state-changing API request requires ASP.NET's antiforgery cookie/token pair, including sign-in and sign-out. The UI keeps the request token in memory and replaces it when the session changes. API authentication failures return HTTP errors, not HTML redirects. Five sign-in requests per minute per process bound password verification work; this limit resets on process restart.
 
-HTTPS deployments require secure cookies and a trusted reverse proxy that forwards the public scheme. Only configured proxy networks and loopback can supply that scheme. With secure cookies enabled, API requests still observed as HTTP are rejected. Health probes remain available without sign-in. Remote TLS termination, multi-user accounts, and external identity providers are outside the current packaged setup.
+HTTPS deployments require secure cookies and explicit trust at both proxy hops. Nginx accepts an incoming scheme only from its configured immediate TLS proxy, and the API separately trusts its immediate Nginx peer. Nginx validates the CIDR configuration before starting and runs without root. With secure cookies enabled, API requests still observed as HTTP are rejected. Health probes remain available without sign-in. Public certificate provisioning, multi-user accounts, and external identity providers are outside the packaged setup.
 
 These boundaries use the framework's [cookie authentication](https://learn.microsoft.com/en-us/aspnet/core/security/authentication/cookie?view=aspnetcore-10.0), [antiforgery](https://learn.microsoft.com/en-us/aspnet/core/security/anti-request-forgery?view=aspnetcore-10.0), and [forwarded headers](https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-10.0) support.

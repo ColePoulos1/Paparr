@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { labels, request } from "../api";
 import type { ImportJob, Preview } from "../api";
 import DuplicateSources from "./DuplicateSources";
+import EditionDetails from "./EditionDetails";
+import { hasEditionDetails } from "../edition";
 
 export default function ReviewPanel({
   job,
@@ -26,12 +28,14 @@ export default function ReviewPanel({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(job.candidates[0]?.title ?? "");
   const [author, setAuthor] = useState(job.candidates[0]?.author ?? "");
+  const [editionDraft, setEditionDraft] = useState({ isbn: "", publisher: "", year: "", language: "" });
+  const hasEditionDraft = Object.values(editionDraft).some((value) => value !== "");
   const candidate =
     job.candidates.find((item) => item.id === candidateId) ?? job.candidates[0];
   const hasDraft = Boolean(
     editing &&
     (title !== (candidate?.title ?? "") ||
-      author !== (candidate?.author ?? "")),
+      author !== (candidate?.author ?? "") || hasEditionDraft),
   );
   const canReview = job.status === "AwaitingApproval" && !reviewUnavailable;
   const showChoices = canReview || hasDraft;
@@ -62,8 +66,19 @@ export default function ReviewPanel({
       job,
       editing &&
         (nextTitle !== (candidate?.title ?? "") ||
-          nextAuthor !== (candidate?.author ?? "")),
+          nextAuthor !== (candidate?.author ?? "") || hasEditionDraft),
     );
+  }
+
+  function updateEdition(field: keyof typeof editionDraft, value: string) {
+    const updated = { ...editionDraft, [field]: value };
+    setEditionDraft(updated);
+    onDraftChange?.(job, editing && (title !== (candidate?.title ?? "") ||
+      author !== (candidate?.author ?? "") || Object.values(updated).some((item) => item !== "")));
+  }
+
+  function clearEdition() {
+    setEditionDraft({ isbn: "", publisher: "", year: "", language: "" });
   }
 
   async function mutate(path: string, body?: unknown) {
@@ -81,6 +96,7 @@ export default function ReviewPanel({
             !job.candidates.some((old) => old.id === item.id),
         );
         if (manual) setCandidateId(manual.id);
+        clearEdition();
         setEditing(false);
         onDraftChange?.(job, false);
       }
@@ -100,6 +116,7 @@ export default function ReviewPanel({
     setTitle(candidate?.title ?? "");
     setAuthor(candidate?.author ?? "");
     setEditing(false);
+    clearEdition();
     onDraftChange?.(job, false);
   }
 
@@ -137,6 +154,7 @@ export default function ReviewPanel({
                 else {
                   setTitle(candidate?.title ?? "");
                   setAuthor(candidate?.author ?? "");
+                  clearEdition();
                   setEditing(true);
                   onDraftChange?.(job, false);
                 }
@@ -155,6 +173,12 @@ export default function ReviewPanel({
                 void mutate(`/api/imports/${job.id}/metadata`, {
                   title,
                   author,
+                  ...(hasEditionDraft ? { edition: {
+                    isbn: editionDraft.isbn || null,
+                    publisher: editionDraft.publisher || null,
+                    publicationYear: editionDraft.year ? Number(editionDraft.year) : null,
+                    language: editionDraft.language || null,
+                  } } : {}),
                 });
               }}
             >
@@ -182,6 +206,17 @@ export default function ReviewPanel({
                   disabled={busy}
                 />
               </label>
+              <p className="muted">Edition details are optional. Provider details are not copied into a new manual choice.</p>
+              <div className="edition-edit-grid">
+                <label>ISBN (optional)<input value={editionDraft.isbn} maxLength={64}
+                  onChange={(event) => updateEdition("isbn", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
+                <label>Publisher (optional)<input value={editionDraft.publisher} maxLength={300}
+                  onChange={(event) => updateEdition("publisher", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
+                <label>Publication year (optional)<input type="number" min={1000} max={9999} step={1} value={editionDraft.year}
+                  onChange={(event) => updateEdition("year", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
+                <label>Language tag (optional)<input value={editionDraft.language} maxLength={35} placeholder="e.g. en-US"
+                  onChange={(event) => updateEdition("language", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
+              </div>
               <button
                 className="button secondary"
                 disabled={!canReview || busy}
@@ -207,6 +242,7 @@ export default function ReviewPanel({
                     setCandidateId(item.id);
                     setTitle(item.title);
                     setAuthor(item.author);
+                    clearEdition();
                     setError("");
                     onDraftChange?.(job, false);
                     setPreview(null);
@@ -221,6 +257,7 @@ export default function ReviewPanel({
                   </span>
                   <span className="candidate-author">{item.author}</span>
                   <span className="evidence">{item.evidence}</span>
+                  <EditionDetails edition={item.edition} />
                   {item.source !== "manual" && (
                     <span className="match-score">
                       Match score · {Math.round(item.confidenceScore)}/100
@@ -230,6 +267,12 @@ export default function ReviewPanel({
               </label>
             ))}
           </fieldset>
+          {job.candidates.some((item) => hasEditionDetails(item.edition)) && (
+            <p className="muted edition-note">
+              Compare edition details before approving. An ISBN checksum validates the number,
+              but does not confirm that it belongs to this file.
+            </p>
+          )}
           {job.candidates.length === 0 && (
             <p className="muted">
               No complete metadata was found. Add a title and author using Edit
@@ -276,6 +319,7 @@ export default function ReviewPanel({
         <div className="destination">
           <span className="tiny-label">IN YOUR LIBRARY</span>
           <strong>{job.acceptedBook.author}</strong>
+          <EditionDetails edition={job.acceptedBook.edition} />
           <small>
             Imported {new Date(job.acceptedBook.importedAt).toLocaleString()} ·{" "}
             {job.acceptedBook.source}

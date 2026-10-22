@@ -116,10 +116,16 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
     {
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Author))
             return ValidationProblem("Title and author cannot be blank.");
+        if (request.Title.Contains('\0') || request.Author.Contains('\0') || request.Edition?.Publisher?.Contains('\0') == true)
+            return ValidationProblem("Title, author, and publisher cannot contain null characters.");
+        if (request.Edition?.PublicationYear is < 1000 or > 9999)
+            return ValidationProblem("Publication year must be between 1000 and 9999.");
         var job = await Details.FirstOrDefaultAsync(j => j.Id == id, ct);
         if (job == null) return NotFound();
         if (job.Status != ImportStatus.AwaitingApproval) throw new ImportConflictException("Metadata can only be edited while awaiting review.");
         var now = clock.GetUtcNow().UtcDateTime;
+        var edition = request.Edition is null ? null : EditionMetadataNormalizer.CreateManual(request.Edition.Isbn,
+            request.Edition.Publisher, request.Edition.PublicationYear, request.Edition.Language);
         job.Candidates.Add(new MetadataCandidate
         {
             Title = request.Title.Trim(),
@@ -128,6 +134,11 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
             ExternalId = "",
             ConfidenceScore = 100,
             Evidence = "Entered during manual review.",
+            Isbn13 = edition?.Isbn13,
+            IsbnStatus = edition?.IsbnStatus ?? EditionIsbnStatus.NotProvided,
+            Publisher = edition?.Publisher,
+            PublicationYear = edition?.PublicationYear,
+            Language = edition?.Language,
             CreatedAt = now
         });
         job.UpdatedAt = now;
