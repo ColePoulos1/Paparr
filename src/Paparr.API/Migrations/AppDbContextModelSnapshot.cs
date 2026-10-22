@@ -217,6 +217,9 @@ namespace Paparr.API.Migrations
                     b.Property<DateTime?>("LeaseExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("PublicationFence")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("Revision")
                         .IsConcurrencyToken()
                         .HasColumnType("uuid");
@@ -368,6 +371,61 @@ namespace Paparr.API.Migrations
                     b.ToTable("MetadataCandidates");
                 });
 
+            modelBuilder.Entity("Paparr.API.Domain.PublicationStage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CleanupAfter")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("CleanupAttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("CleanupError")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DestinationPath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("ImportJobId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("PublicationFence")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FilePath")
+                        .IsUnique();
+
+                    b.HasIndex("ImportJobId");
+
+                    b.HasIndex("Status", "CleanupAfter");
+
+                    b.ToTable("PublicationStages");
+                });
+
             modelBuilder.Entity("Paparr.API.Domain.Book", b =>
                 {
                     b.HasOne("Paparr.API.Domain.ImportJob", "ImportJob")
@@ -407,6 +465,15 @@ namespace Paparr.API.Migrations
                         .IsRequired();
 
                     b.Navigation("ImportJob");
+                });
+
+            modelBuilder.Entity("Paparr.API.Domain.PublicationStage", b =>
+                {
+                    b.HasOne("Paparr.API.Domain.ImportJob", null)
+                        .WithMany()
+                        .HasForeignKey("ImportJobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Paparr.API.Domain.ImportJob", b =>

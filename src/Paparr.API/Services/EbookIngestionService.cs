@@ -8,7 +8,7 @@ namespace Paparr.API.Services;
 public sealed class EbookIngestionService(AppDbContext db, IMetadataService metadata,
     IMetadataEnricherService providers, ILibraryPublisher publisher, IFileHashService hashes,
     IOptions<IngestionOptions> options, TimeProvider clock, ILogger<EbookIngestionService> logger,
-    SourceCleanupService cleanup) : IEbookIngestionService
+    SourceCleanupService cleanup, StagingService staging) : IEbookIngestionService
 {
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
@@ -24,6 +24,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
         job.LeaseExpiresAt = Now.AddMinutes(options.Value.LeaseMinutes);
         job.LastError = null;
         job.Status = job.SelectedCandidateId.HasValue ? ImportStatus.Publishing : ImportStatus.Processing;
+        if (job.Status == ImportStatus.Publishing) job.PublicationFence = Guid.NewGuid();
         Record(job, $"Attempt {job.AttemptCount} started.");
         await db.SaveChangesAsync(cancellationToken);
 
@@ -100,6 +101,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             Path.GetExtension(job.FilePath), job.FileHash);
         job.SelectedCandidateId = candidate.Id;
         job.Status = ImportStatus.Publishing;
+        job.PublicationFence = Guid.NewGuid();
         job.LeaseExpiresAt = Now.AddMinutes(options.Value.LeaseMinutes);
         Record(job, $"Approved metadata from {candidate.Source}.");
         await db.SaveChangesAsync(cancellationToken);
@@ -119,42 +121,51 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
     private async Task PublishAsync(ImportJob job, CancellationToken cancellationToken)
     {
         var candidate = job.Candidates.Single(c => c.Id == job.SelectedCandidateId);
+        var fence = job.PublicationFence!.Value;
         try
         {
-            await publisher.PublishAsync(job.FilePath, job.DestinationPath!, job.FileHash, cancellationToken);
+            var stage = await staging.PrepareAsync(job, fence, cancellationToken);
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            if (!await OwnsPublicationAsync(job, fence, cancellationToken)) return;
+            await publisher.PromoteAsync(stage.FilePath, job.DestinationPath!, job.FileHash, cancellationToken);
+            job.AcceptedBook = new Book
+            {
+                Title = candidate.Title,
+                Author = candidate.Author,
+                Source = candidate.Source,
+                ExternalId = candidate.ExternalId,
+                Isbn13 = candidate.Isbn13,
+                IsbnStatus = candidate.IsbnStatus,
+                Publisher = candidate.Publisher,
+                PublicationYear = candidate.PublicationYear,
+                Language = candidate.Language,
+                FilePath = job.DestinationPath,
+                ImportedAt = Now,
+                IntegrityStatus = IntegrityStatus.Verified,
+                IntegrityCheckedAt = Now,
+                ImportJobId = job.Id
+            };
+            job.Status = ImportStatus.Completed;
+            job.LeaseExpiresAt = null;
+            job.LastError = null;
+            job.CleanupStatus = options.Value.DeleteSourceAfterImport ? SourceCleanupStatus.Pending : SourceCleanupStatus.NotRequested;
+            job.CleanupAfter = options.Value.DeleteSourceAfterImport ? Now : null;
+            stage.Status = PublicationStageStatus.Published;
+            stage.UpdatedAt = Now;
+            Record(job, "Verified library copy and completed the import.");
+            // A failed commit leaves verified bytes available for a later fenced publication.
+            await db.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+            if (!await OwnsPublicationAsync(job, fence, cancellationToken)) return;
             logger.LogWarning(ex, "Publication failed for import {ImportId}", job.Id);
             await FailAsync(job, "The book could not be published. Check the source, destination, permissions, and available space, then retry.", cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
             throw new ImportConflictException(job.LastError!);
         }
-
-        job.AcceptedBook = new Book
-        {
-            Title = candidate.Title,
-            Author = candidate.Author,
-            Source = candidate.Source,
-            ExternalId = candidate.ExternalId,
-            Isbn13 = candidate.Isbn13,
-            IsbnStatus = candidate.IsbnStatus,
-            Publisher = candidate.Publisher,
-            PublicationYear = candidate.PublicationYear,
-            Language = candidate.Language,
-            FilePath = job.DestinationPath,
-            ImportedAt = Now,
-            IntegrityStatus = IntegrityStatus.Verified,
-            IntegrityCheckedAt = Now,
-            ImportJobId = job.Id
-        };
-        job.Status = ImportStatus.Completed;
-        job.LeaseExpiresAt = null;
-        job.LastError = null;
-        job.CleanupStatus = options.Value.DeleteSourceAfterImport ? SourceCleanupStatus.Pending : SourceCleanupStatus.NotRequested;
-        job.CleanupAfter = options.Value.DeleteSourceAfterImport ? Now : null;
-        Record(job, "Verified library copy and completed the import.");
-        // Publication can be replayed after a failed commit. Source cleanup follows the durable completion.
-        await db.SaveChangesAsync(cancellationToken);
         try
         {
             await cleanup.TryCleanupAsync(job, cancellationToken);
@@ -163,6 +174,13 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
         {
             logger.LogWarning(ex, "Import {ImportId} completed; its source was retained", job.Id);
         }
+    }
+
+    private async Task<bool> OwnsPublicationAsync(ImportJob job, Guid fence, CancellationToken ct)
+    {
+        var current = await db.ImportJobs.FromSqlInterpolated($"SELECT * FROM \"ImportJobs\" WHERE \"Id\" = {job.Id} FOR UPDATE")
+            .AsNoTracking().SingleAsync(ct);
+        return current.Status == ImportStatus.Publishing && current.PublicationFence == fence && current.Revision == job.Revision;
     }
 
     private async Task FailAsync(ImportJob job, string message, CancellationToken ct)

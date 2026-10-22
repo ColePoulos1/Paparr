@@ -78,6 +78,8 @@ try {
   const worker = page.getByRole("region", { name: "Worker status", exact: true });
   await expect(worker.getByRole("article")).toHaveCount(4);
   await expect(worker.getByRole("article", { name: "File discovery" })).toContainText("Succeeded");
+  await worker.getByRole("button", { name: "Show temporary file status" }).click();
+  await expect(worker.getByRole("region", { name: "Temporary file maintenance" }).getByText("Settled attempts", { exact: true })).toBeVisible();
   await page.screenshot({ path: join(outputDirectory, "worker-desktop.png"), fullPage: true });
   const mobileContext = await browser.newContext({
     ...devices["iPhone 13"], storageState: await context.storageState(),
@@ -93,6 +95,8 @@ try {
   await mobile.getByRole("button", { name: "Worker status", exact: true }).click();
   await expect(mobile.getByRole("region", { name: "Worker status", exact: true }).getByRole("article"))
     .toHaveCount(4);
+  await mobile.getByRole("button", { name: "Show temporary file status" }).click();
+  await expect(mobile.getByRole("region", { name: "Temporary file maintenance" }).getByText("Settled attempts", { exact: true })).toBeVisible();
   expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await mobile.screenshot({ path: join(outputDirectory, "worker-mobile.png"), fullPage: true });
   await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();

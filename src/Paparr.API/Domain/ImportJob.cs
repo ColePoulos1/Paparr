@@ -9,6 +9,7 @@ public class ImportJob
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
     public Guid Revision { get; set; } = Guid.NewGuid();
+    public Guid? PublicationFence { get; set; }
     public int AttemptCount { get; set; }
     public string? LastError { get; set; }
     public DateTime? LeaseExpiresAt { get; set; }

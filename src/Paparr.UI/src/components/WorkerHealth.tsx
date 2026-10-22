@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { request } from "../api";
 import type { WorkerSnapshot } from "../api";
 import "./WorkerHealth.css";
+import StagingHealth from "./StagingHealth";
 
 const stageNames: Record<string, string> = {
   queuedWork: "Queued imports",
-  sourceCleanup: "Source cleanup",
+  sourceCleanup: "File maintenance",
   libraryAudit: "Library integrity",
   discovery: "File discovery",
 };
@@ -30,6 +31,7 @@ export default function WorkerHealth() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
+  const [showTemporaryFiles, setShowTemporaryFiles] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -164,12 +166,22 @@ export default function WorkerHealth() {
           </div>
           <p className="worker-footnote">
             This view describes the API process serving this request and resets
-            when it restarts. A finished stage can include failed imports or cleanup
-            attempts; check each import's history for its result. Directory discovery may skip
-            inaccessible folders.
+            when it restarts. A finished stage can include failed imports or
+            cleanup attempts; check each import's history for its result.
+            Directory discovery may skip inaccessible folders.
           </p>
         </>
       )}
+      <button
+        className="button secondary"
+        aria-expanded={showTemporaryFiles}
+        onClick={() => setShowTemporaryFiles((value) => !value)}
+      >
+        {showTemporaryFiles
+          ? "Hide temporary file status"
+          : "Show temporary file status"}
+      </button>
+      {showTemporaryFiles && <StagingHealth />}
     </section>
   );
 }

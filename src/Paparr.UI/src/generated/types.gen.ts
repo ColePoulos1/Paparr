@@ -153,6 +153,13 @@ export type SourceCleanupDto = {
     canRetry: boolean;
 };
 
+export type StagingStatusDto = {
+    activeAttempts: number;
+    pendingMaintenance: number;
+    retained: number;
+    settled: number;
+};
+
 export type WorkerDiagnosticsSnapshot = {
     enabled: boolean;
     state: string;
@@ -508,3 +515,19 @@ export type PostApiLibraryAuditsResponses = {
 };
 
 export type PostApiLibraryAuditsResponse = PostApiLibraryAuditsResponses[keyof PostApiLibraryAuditsResponses];
+
+export type GetApiDiagnosticsStagingData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/diagnostics/staging';
+};
+
+export type GetApiDiagnosticsStagingResponses = {
+    /**
+     * OK
+     */
+    200: StagingStatusDto;
+};
+
+export type GetApiDiagnosticsStagingResponse = GetApiDiagnosticsStagingResponses[keyof GetApiDiagnosticsStagingResponses];

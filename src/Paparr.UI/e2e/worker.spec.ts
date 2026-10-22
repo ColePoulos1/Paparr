@@ -43,6 +43,16 @@ test("worker status is deep linkable and identifies a delayed discovery stage", 
       },
     }),
   );
+  await page.route("**/api/diagnostics/staging", (route) =>
+    route.fulfill({
+      json: {
+        activeAttempts: 1,
+        pendingMaintenance: 2,
+        retained: 1,
+        settled: 12,
+      },
+    }),
+  );
   await page.goto("/?view=worker");
   await expect(
     page.getByRole("heading", { name: "Taking longer than expected" }),
@@ -62,9 +72,23 @@ test("worker status is deep linkable and identifies a delayed discovery stage", 
   await expect(
     page.getByRole("button", { name: "Refresh status", exact: true }),
   ).toBeEnabled();
+  await page
+    .getByRole("button", { name: "Show temporary file status" })
+    .click();
+  const maintenance = page.getByRole("region", {
+    name: "Temporary file maintenance",
+  });
+  await expect(maintenance.getByText("Settled attempts", { exact: true })).toBeVisible();
+  await expect(
+    maintenance.getByText(/Check the server logs before removing anything/),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
     ),
   ).toBe(false);
+  await page
+    .getByRole("button", { name: "Hide temporary file status" })
+    .click();
+  await expect(maintenance).toHaveCount(0);
 });

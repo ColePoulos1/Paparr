@@ -67,6 +67,10 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
 
     private async Task RunSourceCleanupAsync(CancellationToken ct)
     {
+        using (var stagingScope = scopes.CreateScope())
+        {
+            await stagingScope.ServiceProvider.GetRequiredService<StagingService>().RunBatchAsync(ct);
+        }
         using (var scope = scopes.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

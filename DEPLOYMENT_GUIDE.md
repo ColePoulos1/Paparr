@@ -64,13 +64,17 @@ Sign-in permits five requests per minute per API process. Restarting the process
 - `/health/ready`: the API can connect to PostgreSQL.
 - `docker compose logs paparr-api`: import identifiers, provider failures, and publication errors.
 - The review panel shows attempts, actionable failure messages, and event history.
-- Worker status shows when queued imports, source cleanup, integrity scans, and discovery last made progress. `/api/diagnostics/worker` exposes the same owner-protected information.
+- Worker status shows when queued imports, file maintenance, integrity scans, and discovery last made progress. `/api/diagnostics/worker` exposes the same owner-protected information.
 
 Readiness does not certify filesystem permissions or parser health. A failed import retains its source for investigation. Repeated retries are bounded by `MaxAttempts`.
 
 Worker diagnostics describe the API process serving the request and reset on restart. A delay indicator appears after three polling intervals without stage progress, with a minimum of 60 seconds; large files and slow storage can also trigger it. A successful stage means the worker finished that phase, even if individual imports or cleanup attempts failed. Discovery may skip inaccessible folders. Use import history and API logs to investigate; this screen does not establish global health across multiple API instances.
 
 Optional source cleanup is tracked separately after completion. It retries up to three times, then shows a retained-source warning and a retry action. A changed source is never removed. Disabling cleanup prevents subsequent removal; it does not retroactively change already completed cleanup.
+
+Expand **Show temporary file status** on the worker screen for publication staging counts, also available at the owner-only `/api/diagnostics/staging` endpoint. Maintenance removes only confirmed temporary files recorded in PostgreSQL, after their publication attempt stops owning the import. Current attempts remain protected even after their lease expires, until recovery changes ownership. Access failures retry with a delay; unconfirmed files are retained and logged with import and stage IDs. Settled attempts include files already absent, so the count is not a deletion total.
+
+Files left by older versions and other untracked `.partial` files are never swept automatically. Before manually removing a retained file, stop the API, back up the database and files, and use the journal and logs to establish which attempt created it. Do not infer ownership from a filename or its age.
 
 Library health scans compare each recorded library file with its original hash. They can resume after a restart and never repair files automatically. Verify a backup before replacing a file reported as changed or missing.
 

@@ -30,16 +30,22 @@ A 512-entry discovery cache avoids hashing unchanged retained files on every pol
 
 ## Publication protocol
 
-1. Persist the selected candidate, destination, and publication lease.
-2. Copy to a unique temporary file beside the destination.
-3. Flush and verify the staged SHA-256 hash.
-4. Rename without replacement. If the destination already exists, verify its hash.
-5. Save the book, completed status, cleanup intent, and event in one database transaction.
+1. Persist the selected candidate, destination, publication lease, and a new publication fence.
+2. Journal the exact temporary path before creating it beside the destination. Confirm ownership in PostgreSQL while holding the exclusive creation handle, before copying any bytes.
+3. Copy, flush, and verify the staged SHA-256 hash outside the publication transaction.
+4. Lock the import row and check its fence and revision. Rename without replacement; if the destination already exists, verify its hash.
+5. Save the book, completed status, cleanup intent, journal result, and event in that transaction.
 6. If configured, verify both copies again before removing the source.
 
 A crash between steps 4 and 5 leaves a published file that recovery can verify and reuse. A failed completion commit retains the source. Source cleanup has its own persisted attempts and lease; it can resume after a crash on either side of deletion. Three unsuccessful attempts retain the source and expose a retry action without failing the completed import. Disabling cleanup prevents further automatic removal. Old imports are not retroactively scheduled for deletion.
 
-The filesystem and PostgreSQL do not share a transaction. This protocol makes interrupted work replayable, assuming the filesystem honors flush and rename semantics. It cannot guarantee durability after a storage-device failure. An abrupt process stop can leave an orphaned staging file; automatic staging cleanup is not implemented.
+An expired publisher can finish copying after another worker recovers its job. Each new publication claim rotates the fence; the stale publisher must acquire the row lock and prove ownership before it can publish or record a failure. It cannot replace the recovered result.
+
+File maintenance processes at most 20 due journal entries per cycle. It locks the parent import, excludes its current publication fence, and checks the exact recorded path, containment, and reparse points before deleting a confirmed temporary file. Already absent files settle without deletion. Permission and access failures leave bytes intact and retry with a delay of up to 60 minutes. Independent workers serialize maintenance through the same database lock.
+
+A crash between exclusive file creation and the ownership commit leaves an uncertain file. If it is present, maintenance retains it for manual review and logs the import and stage IDs. Legacy and other untracked temporary files are never enumerated or deleted. The worker screen reports active, pending, retained, and settled attempts; settled counts include files already absent. These owner-only database counts are separate from process diagnostics, so a database outage does not prevent viewing the worker snapshot.
+
+The filesystem and PostgreSQL do not share a transaction. This protocol makes interrupted work replayable, assuming the filesystem honors flush and rename semantics. It cannot guarantee durability after a storage-device failure.
 
 ## Paths
 

@@ -5,6 +5,50 @@ namespace Paparr.UnitTests;
 public sealed class LibraryPublisherTests
 {
     [Fact]
+    public async Task A_staging_collision_is_never_adopted_or_deleted()
+    {
+        using var library = new TemporaryLibrary();
+        var source = library.Write("incoming");
+        var hash = await new FileHashService().ComputeHashAsync(source);
+        var destination = Path.Combine(library.Library, "book.epub");
+        var stage = destination + ".collision.partial";
+        await File.WriteAllTextAsync(stage, "unrelated bytes");
+        var claimed = false;
+
+        await Assert.ThrowsAsync<IOException>(() => library.Publisher().PrepareAsync(source, destination, stage, hash,
+            _ => { claimed = true; return Task.CompletedTask; }, default));
+
+        Assert.False(claimed);
+        Assert.Equal("unrelated bytes", await File.ReadAllTextAsync(stage));
+        Assert.False(File.Exists(destination));
+    }
+
+    [Fact]
+    public async Task Ownership_persistence_failure_removes_only_the_locally_created_empty_stage()
+    {
+        using var library = new TemporaryLibrary();
+        var source = library.Write("incoming");
+        var hash = await new FileHashService().ComputeHashAsync(source);
+        var destination = Path.Combine(library.Library, "book.epub");
+        var stage = destination + ".planned.partial";
+        var owned = false;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => library.Publisher().PrepareAsync(source, destination,
+            stage, hash, _ =>
+            {
+                owned = true;
+                Assert.Equal(0, new FileInfo(stage).Length);
+                Assert.Throws<IOException>(() => File.Open(stage, FileMode.Open, FileAccess.Write, FileShare.None));
+                throw new InvalidOperationException("Ownership persistence failed.");
+            }, default));
+
+        Assert.True(owned);
+        Assert.False(File.Exists(stage));
+        Assert.False(File.Exists(destination));
+        Assert.Equal("incoming", await File.ReadAllTextAsync(source));
+    }
+
+    [Fact]
     public async Task Publication_is_verified_repeatable_and_retains_the_source()
     {
         using var library = new TemporaryLibrary();

@@ -15,6 +15,7 @@ Paparr keeps an import history and verifies file content before publication. Ori
 - Edition details with ISBN checksum checks, publisher, publication year, and language.
 - A responsive review workspace with search, pagination, manual metadata, destination previews, and event history.
 - Collision-safe publication, content verification, bounded attempts, retry, and recovery of interrupted jobs.
+- Journaled temporary-file maintenance that preserves active attempts and files without confirmed ownership.
 - Resumable integrity scans that identify missing, changed, and unreadable library files without modifying them.
 - Worker status with stage progress, sanitized failures, and delay indicators.
 - Owner-only library downloads with content verification and byte-range support.
@@ -64,4 +65,4 @@ Read the [development guide](DEVELOPMENT_GUIDE.md), [architecture](docs/architec
 
 ## Project status
 
-Paparr is an early project undergoing an overhaul. Undo, folder profiles, and staging maintenance remain planned work. See the [changelog](CHANGELOG.md) for the current release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [benchmarks](docs/performance.md) for measured behavior.
+Paparr is an early project undergoing an overhaul. Undo and folder profiles remain planned work. See the [changelog](CHANGELOG.md) for the current release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [benchmarks](docs/performance.md) for measured behavior.
