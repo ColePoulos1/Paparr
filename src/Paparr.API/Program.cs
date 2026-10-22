@@ -49,6 +49,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddOwnerAuthentication(builder.Configuration);
 builder.Services.AddOptions<IngestionOptions>().Bind(builder.Configuration).ValidateDataAnnotations()
     .Validate(o => o.HasSeparateRoots(), "IngestPath and LibraryPath must be separate, non-overlapping directories.")
+    .Validate(o => o.HasValidFolderProfiles(), "FolderProfiles must use unique names and relative ingest folders, portable collection names, valid filename orders, and paths without symbolic links or case aliases.")
     .ValidateOnStart();
 builder.Services.AddDbContext<AppDbContext>((services, options) =>
 {

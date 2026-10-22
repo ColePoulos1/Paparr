@@ -4,6 +4,7 @@ import type { ImportJob, Preview } from "../api";
 import DuplicateSources from "./DuplicateSources";
 import EditionDetails from "./EditionDetails";
 import UndoImport from "./UndoImport";
+import FolderProfile from "./FolderProfile";
 import { hasEditionDetails } from "../edition";
 
 export default function ReviewPanel({
@@ -131,6 +132,7 @@ export default function ReviewPanel({
         {job.acceptedBook?.title ?? candidate?.title ?? "Give this book a name"}
       </h2>
       <p className="muted filename">{job.fileName}</p>
+      <FolderProfile profile={job.profile} />
       {job.lastError && job.status !== "Undoing" && <div className="notice error">{job.lastError}</div>}
       {error && (
         <div className="notice error" role="alert">

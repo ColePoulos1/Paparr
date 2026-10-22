@@ -94,8 +94,7 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
         if (job == null) return NotFound();
         var candidate = job.Candidates.FirstOrDefault(c => c.Id == candidateId);
         if (candidate == null) return NotFound();
-        var destination = LibraryPaths.Destination(options.Value.LibraryPath, candidate.Title, candidate.Author,
-            Path.GetExtension(job.FilePath), job.FileHash);
+        var destination = LibraryPaths.ImportDestination(options.Value.LibraryPath, job, candidate);
         return Ok(new ImportPreviewDto(Path.GetRelativePath(options.Value.LibraryPath, destination).Replace('\\', '/'),
             System.IO.File.Exists(destination), !options.Value.DeleteSourceAfterImport));
     }

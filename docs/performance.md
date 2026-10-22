@@ -8,7 +8,13 @@
 dotnet run --configuration Release --project tools/Paparr.IngestionBenchmarks -- --files 10 --output .tools/ingestion-run.json
 ```
 
-`--files` accepts 2–100, default 10. Output files are created without replacement. The harness uses only its own temporary roots and database and removes them when finished.
+`--files` accepts 2–100, default 10. `--content-mib` accepts 0–4 per file; zero keeps the tiny fixtures. Larger fixtures contain real PDF text pages and referenced EPUB XHTML chapters stored without compression. Requested content and actual input files are bounded to 512 MiB; originals and library copies occupy roughly twice the input space. Output files are created without replacement. The harness uses only its own temporary roots and database and removes them when finished.
+
+```powershell
+dotnet run --configuration Release --project tools/Paparr.IngestionBenchmarks -- --files 10 --content-mib 4 --output .tools/ingestion-larger.json
+```
+
+The current harness separately measures staging journal settlement, then hashes both original and published files. Successful publication has already renamed each temporary file, so settling these rows does not measure orphan deletion or reclaimed bytes. Fixture generation, final verification, and status probes are excluded from processing timings.
 
 One Windows x64 run on October 21, 2026, with .NET 10.0.9 and eight logical processors, processed ten tiny fixtures totaling 8,777 bytes:
 
@@ -25,6 +31,10 @@ One Windows x64 run on October 21, 2026, with .NET 10.0.9 and eight logical proc
 All ten imports completed, all original files remained present, all published bytes matched their recorded hashes, and all ten audit results were verified. Raw local evidence is `.tools/ingestion-20261021.json`. These are observations from a small offline workload, not a sustained throughput or large-book benchmark. The harness calls the real services directly; it does not measure review time, HTTP overhead, provider latency, background scheduling, or network storage. Docker and filesystem cache state affect timings.
 
 The same harness with publication journaling enabled completed 100 fixtures totaling 87,776 bytes: discovery took 1,754 ms, metadata extraction 2,762 ms, explicit approval and publication 4,390 ms, and the integrity scan 740 ms. It retained every original file, verified all 100 published hashes, and processed all 100 audit results without faults. Raw evidence is `.tools/ingestion-undo-100.json`. This checks a larger queue of tiny files; it does not establish large-book throughput or directly rehash retained originals after completion.
+
+On October 22, 2026, the extended harness passed two files with 1 MiB of requested content each and ten files with 4 MiB each. The latter produced 42,917,249 actual input bytes: stable discovery took 2,492 ms, metadata extraction 4,231 ms, approval/publication 5,174 ms, integrity scanning 1,989 ms, and settlement of ten journal rows 1,145 ms. Final source and destination hashes matched, all ten audit results were verified, and no partial files remained. Evidence is `.tools/ingestion-release-2x1.json` and `.tools/ingestion-release-10x4.json`.
+
+These generated, uncompressed text workloads do not model image-heavy books, rendering, storage contention, or sustained production traffic. The measurements ran alongside other local verification and are individual observations, not comparable throughput claims.
 
 ## Discovery hashing microbenchmark
 

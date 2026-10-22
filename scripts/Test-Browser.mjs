@@ -36,6 +36,7 @@ try {
   await page.getByLabel("Language tag (optional)", { exact: true }).fill("fr");
   await page.getByRole("button", { name: "Save metadata choice", exact: true }).click();
   await expect(page.getByText("DESTINATION PREVIEW", { exact: true })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(outputDirectory, "review-desktop.png"), fullPage: true });
   const approvalResponse = page.waitForResponse(response =>
     response.request().method() === "POST" && /\/accept\/\d+$/.test(new URL(response.url()).pathname));
@@ -101,6 +102,7 @@ try {
   await mobile.screenshot({ path: join(outputDirectory, "worker-mobile.png"), fullPage: true });
   await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
   await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  await expect(mobile.getByRole("region", { name: "Folder profile", exact: true })).toContainText("Fiction");
   await expect(mobile.getByRole("region", { name: "Duplicate files", exact: true }))
     .toContainText("copies/The Quiet Atlas copy.epub");
   expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);

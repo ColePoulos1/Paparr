@@ -197,6 +197,10 @@ namespace Paparr.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("CollectionSegment")
+                        .HasMaxLength(70)
+                        .HasColumnType("character varying(70)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -214,11 +218,26 @@ namespace Paparr.API.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("FilenameOrder")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("TitleAuthor");
+
                     b.Property<string>("LastError")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("LeaseExpiresAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProfileIngestSubfolder")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)");
+
+                    b.Property<string>("ProfileName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<Guid?>("PublicationFence")
                         .HasColumnType("uuid");

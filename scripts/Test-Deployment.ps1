@@ -13,6 +13,7 @@ if ($Browser) {
 $project = 'paparr-smoke-' + [Guid]::NewGuid().ToString('N').Substring(0, 12)
 $testRoot = Join-Path $repoRoot ".tools/$project"
 $ingest = Join-Path $testRoot 'ingest'
+$demoIngest = Join-Path $ingest 'fiction'
 $library = Join-Path $testRoot 'library'
 $envPath = Join-Path $testRoot '.env'
 $password = [Guid]::NewGuid().ToString('N')
@@ -20,9 +21,19 @@ $ownerPassword = [Guid]::NewGuid().ToString('N')
 $ownerHash = ''
 $authenticationEnabled = 'false'
 $baseUrl = "http://127.0.0.1:$Port"
-$compose = @('compose', '--file', (Join-Path $repoRoot 'docker-compose.yml'), '--env-file', $envPath, '--project-name', $project)
+$profileOverride = Join-Path $testRoot 'profiles.yml'
+$compose = @('compose', '--file', (Join-Path $repoRoot 'docker-compose.yml'), '--file', $profileOverride, '--env-file', $envPath, '--project-name', $project)
 $checks = [Collections.Generic.List[string]]::new()
 New-Item -ItemType Directory -Path $ingest, $library -Force | Out-Null
+@'
+services:
+  paparr-api:
+    environment:
+      FolderProfiles__0__Name: Fiction
+      FolderProfiles__0__IngestSubfolder: fiction
+      FolderProfiles__0__Collection: Fiction
+      FolderProfiles__0__FilenameOrder: TitleAuthor
+'@ | Set-Content -LiteralPath $profileOverride -Encoding utf8NoBOM
 if (!$IsWindows) {
     & chmod 777 $library
     if ($LASTEXITCODE -ne 0) { throw 'Could not prepare the disposable library mount.' }
@@ -66,7 +77,7 @@ function Assert-Scan([int]$Verified, [int]$Changed) {
 }
 Set-TestEnvironment $library
 try {
-    & (Join-Path $PSScriptRoot 'New-DemoBooks.ps1') -Destination $ingest
+    & (Join-Path $PSScriptRoot 'New-DemoBooks.ps1') -Destination $demoIngest
     Invoke-Compose -Arguments @('up', '--build', '-d', '--wait', '--wait-timeout', '180')
     Wait-For {
         $counts = Invoke-RestMethod "$baseUrl/api/imports/summary"
@@ -76,11 +87,13 @@ try {
 
     $jobs = Invoke-RestMethod "$baseUrl/api/imports?status=AwaitingApproval"
     $job = $jobs.items | Where-Object { $_.candidates.title -contains 'The Quiet Atlas' } | Select-Object -First 1
+    Assert-Equal 'Fiction' $job.profile.name 'Captured folder profile'
+    Assert-Equal 'fiction' $job.profile.sourceFolder 'Captured watch subfolder'
     if (!$job) { throw 'The named demo book was not discovered.' }
     $duplicateDirectory = Join-Path $ingest 'copies'
     New-Item -ItemType Directory -Path $duplicateDirectory | Out-Null
     $duplicate = Join-Path $duplicateDirectory 'The Quiet Atlas copy.epub'
-    Copy-Item -LiteralPath (Join-Path $ingest $job.fileName) -Destination $duplicate
+    Copy-Item -LiteralPath (Join-Path $demoIngest $job.fileName) -Destination $duplicate
     Wait-For { (Invoke-RestMethod "$baseUrl/api/imports/$($job.id)/duplicates").total -eq 1 } 'duplicate observation'
     $observation = (Invoke-RestMethod "$baseUrl/api/imports/$($job.id)/duplicates").items[0]
     Assert-Equal 'copies/The Quiet Atlas copy.epub' $observation.relativePath 'Duplicate relative path'
@@ -91,11 +104,15 @@ try {
     Assert-Equal 'Completed' $imported.status 'Approval'
     $files = @(Get-ChildItem -LiteralPath $library -File -Recurse)
     Assert-Equal 1 $files.Count 'Published file count'
-    $source = Join-Path $ingest $job.fileName
+    $source = Join-Path $demoIngest $job.fileName
     $expectedHash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
     Assert-Equal $expectedHash (Get-FileHash -LiteralPath $files[0].FullName -Algorithm SHA256).Hash 'Published hash'
     Assert-Equal $expectedHash (Get-FileHash -LiteralPath $duplicate -Algorithm SHA256).Hash 'Duplicate retained after approval'
     $checks.Add('Verified publication with original retained')
+    Assert-Equal 'Fiction' $imported.profile.collection 'Captured library collection'
+    $publishedRelative = [IO.Path]::GetRelativePath($library, $files[0].FullName).Replace('\', '/')
+    if (!$publishedRelative.StartsWith('Fiction/', [StringComparison]::Ordinal)) { throw 'Profile collection was not used for publication.' }
+    $checks.Add('Captured folder profile routes reviewed imports into its library collection')
     if (!$IsWindows) {
         $relative = [IO.Path]::GetRelativePath($library, $files[0].FullName).Replace('\', '/')
         Invoke-Compose -Arguments @('exec', '-T', 'paparr-api', 'chmod', 'o+w', "/library/$relative")

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -14,14 +13,14 @@ using Npgsql;
 using Paparr.API.Data;
 using Paparr.API.Domain;
 using Paparr.API.Services;
-using Paparr.TestFixtures;
+using Paparr.IngestionBenchmarks;
 using Testcontainers.PostgreSql;
 
 var parsed = BenchmarkArguments.Parse(args);
 if (parsed.Error is not null)
 {
     Console.Error.WriteLine(parsed.Error);
-    Console.Error.WriteLine("Usage: Paparr.IngestionBenchmarks [--files 2..100] [--output <new-json-file>]");
+    Console.Error.WriteLine("Usage: Paparr.IngestionBenchmarks [--files 2..100] [--content-mib 0..4] [--output <new-json-file>]");
     return 2;
 }
 
@@ -51,10 +50,12 @@ try
     var hostStartupAndMigrationsMs = stopwatch.Elapsed.TotalMilliseconds;
 
     stopwatch.Restart();
-    var inputs = CreateFixtures(ingest, settings.Files);
+    var inputs = BenchmarkFixtures.Create(ingest, settings);
     stopwatch.Stop();
     var fixtureCreationMs = stopwatch.Elapsed.TotalMilliseconds;
     var syntheticBytes = inputs.Sum(path => new FileInfo(path).Length);
+    var pdfBytes = inputs.Where(path => Path.GetExtension(path) == ".pdf").Sum(path => new FileInfo(path).Length);
+    var epubBytes = syntheticBytes - pdfBytes;
 
     var initialDiscoveryMs = await TimeAsync(async () =>
     {
@@ -84,7 +85,7 @@ try
             using var scope = factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var job = await db.ImportJobs.Include(item => item.Candidates).Include(item => item.Events)
-                .SingleAsync(item => item.Id == id);
+                .AsSplitQuery().SingleAsync(item => item.Id == id);
             await scope.ServiceProvider.GetRequiredService<IEbookIngestionService>()
                 .ProcessImportJobAsync(job, CancellationToken.None);
             if (job.Status != ImportStatus.AwaitingApproval || job.Candidates.Count == 0)
@@ -100,7 +101,7 @@ try
             using var scope = factory.Services.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var job = await db.ImportJobs.Include(item => item.Candidates).Include(item => item.AcceptedBook)
-                .Include(item => item.Events).SingleAsync(item => item.Id == id);
+                .Include(item => item.Events).AsSplitQuery().SingleAsync(item => item.Id == id);
             var candidate = job.Candidates.OrderByDescending(item => item.ConfidenceScore).ThenBy(item => item.Id).First();
             await scope.ServiceProvider.GetRequiredService<IEbookIngestionService>()
                 .AcceptCandidateAsync(job, candidate, CancellationToken.None);
@@ -120,20 +121,44 @@ try
         }
     });
 
-    var verification = await VerifyAsync(factory, inputs, jobIds);
+    var stagingBefore = await ReadStageCountsAsync(factory);
+    var stagingAfter = stagingBefore;
+    var stagingMaintenanceMs = 0d;
+    var stagingBatches = 0;
+    while (stagingAfter.Pending > 0 && stagingBatches < settings.Files)
+    {
+        stagingMaintenanceMs += await TimeAsync(async () =>
+        {
+            using var scope = factory.Services.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<StagingService>().RunBatchAsync(CancellationToken.None);
+        });
+        stagingBatches++;
+        stagingAfter = await ReadStageCountsAsync(factory);
+    }
+    var staging = new StagingSettlementResult(settings.Files, stagingBatches, stagingBefore, stagingAfter,
+        Directory.GetFiles(library, "*.partial", SearchOption.AllDirectories).Length);
+    stopwatch.Restart();
+    var verification = await VerifyAsync(factory, inputs, jobIds, staging.AllChecksPassed);
+    stopwatch.Stop();
+    var finalVerificationMs = stopwatch.Elapsed.TotalMilliseconds;
     var result = new IngestionBenchmarkResult(
         Tool: "Paparr offline ingestion pipeline benchmark",
         Runtime: RuntimeInformation.FrameworkDescription,
         OperatingSystem: RuntimeInformation.OSDescription,
         Architecture: RuntimeInformation.ProcessArchitecture.ToString(),
         ProcessorCount: Environment.ProcessorCount,
-        Configuration: new BenchmarkConfiguration(settings.Files, syntheticBytes, "PDF and EPUB fixtures",
+        Configuration: new BenchmarkConfiguration(settings.Files, settings.ContentMiB, settings.RequestedContentBytes,
+            syntheticBytes, pdfBytes, epubBytes, BenchmarkOptions.MaximumInputBytes, "PDF and EPUB fixtures",
+            settings.ContentMiB == 0 ? "Tiny metadata fixtures."
+                : "Uncompressed generated PDF page streams and referenced EPUB XHTML chapters; actual file bytes include format overhead.",
             "Metadata providers disabled; no external metadata requests."),
         Startup: new StartupMeasurements(containerStartupMs, hostStartupAndMigrationsMs, fixtureCreationMs),
         Pipeline: new PipelineMeasurements(initialDiscoveryMs, discoveryMs, 5, metadataMs,
-            approvalPublicationMs, auditMs),
+            approvalPublicationMs, auditMs, stagingMaintenanceMs),
+        Staging: staging,
+        FinalVerificationMilliseconds: finalVerificationMs,
         Results: verification,
-        Note: "Synthetic offline run. Database/container startup, migrations, fixture creation, and the simulated stability wait are reported separately from processing phases. Results are for this run only and do not claim production throughput.");
+        Note: "Synthetic offline run using direct application services. Startup, migrations, fixture creation, simulated stability wait, final byte verification, and staging status probes are excluded from measured processing phases. Staging settlement records already-renamed, absent partial files; it does not measure orphan-byte reclamation. Retained originals and published copies occupy roughly twice the input bytes. This run does not measure rendering, human review, provider latency, network storage, or sustained production throughput.");
 
     var json = JsonSerializer.Serialize(result, jsonOptions);
     Console.WriteLine(json);
@@ -165,43 +190,21 @@ static async Task<double> TimeAsync(Func<Task> action)
     return stopwatch.Elapsed.TotalMilliseconds;
 }
 
-static string[] CreateFixtures(string ingest, int count)
+static async Task<StageCounts> ReadStageCountsAsync(BenchmarkFactory factory)
 {
-    var paths = new string[count];
-    for (var index = 0; index < count; index++)
-    {
-        var title = $"Benchmark Book {index + 1:D3}";
-        var author = $"Benchmark Author {index + 1:D3}";
-        var extension = index % 2 == 0 ? ".pdf" : ".epub";
-        var path = Path.Combine(ingest, $"synthetic-{index + 1:D3}{extension}");
-        if (extension == ".pdf") PdfFixture.Write(path, title, author);
-        else WriteEpub(path, title, author);
-        paths[index] = path;
-    }
-    return paths;
+    using var scope = factory.Services.CreateScope();
+    var counts = await scope.ServiceProvider.GetRequiredService<AppDbContext>().PublicationStages.AsNoTracking()
+        .GroupBy(stage => stage.Status).Select(group => new { Status = group.Key, Count = group.Count() }).ToListAsync();
+    int Count(PublicationStageStatus status) => counts.SingleOrDefault(item => item.Status == status)?.Count ?? 0;
+    return new StageCounts(Count(PublicationStageStatus.Planned), Count(PublicationStageStatus.Owned),
+        Count(PublicationStageStatus.Published), Count(PublicationStageStatus.Cleaned), Count(PublicationStageStatus.Retained));
 }
 
-static void WriteEpub(string path, string title, string author)
-{
-    using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
-    Add(archive, "mimetype", "application/epub+zip", CompressionLevel.NoCompression);
-    Add(archive, "META-INF/container.xml",
-        """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""");
-    Add(archive, "content.opf",
-        $"""<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="id">urn:uuid:{Guid.NewGuid():D}</dc:identifier><dc:title>{System.Security.SecurityElement.Escape(title)}</dc:title><dc:creator>{System.Security.SecurityElement.Escape(author)}</dc:creator><dc:language>en</dc:language></metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/></manifest><spine><itemref idref="chapter"/></spine></package>""");
-    Add(archive, "chapter.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\"><body><p>Offline benchmark fixture.</p></body></html>");
-    Add(archive, "nav.xhtml", "<html xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:epub=\"http://www.idpf.org/2007/ops\"><body><nav epub:type=\"toc\"><ol><li><a href=\"chapter.xhtml\">Chapter</a></li></ol></nav></body></html>");
-}
-
-static void Add(ZipArchive archive, string path, string content, CompressionLevel compression = CompressionLevel.Optimal)
-{
-    using var writer = new StreamWriter(archive.CreateEntry(path, compression).Open());
-    writer.Write(content);
-}
-
-static async Task<VerificationResult> VerifyAsync(BenchmarkFactory factory, IReadOnlyList<string> inputs, IReadOnlyList<long> jobIds)
+static async Task<VerificationResult> VerifyAsync(BenchmarkFactory factory, IReadOnlyList<string> inputs,
+    IReadOnlyList<long> jobIds, bool stagingSettled)
 {
     var hashesMatch = true;
+    var sourceHashesMatch = true;
     var sourcesRetained = true;
     using (var scope = factory.Services.CreateScope())
     {
@@ -211,6 +214,13 @@ static async Task<VerificationResult> VerifyAsync(BenchmarkFactory factory, IRea
         sourcesRetained = jobs.Count == inputs.Count && jobs.All(job => File.Exists(job.FilePath));
         foreach (var job in jobs)
         {
+            if (!File.Exists(job.FilePath)) sourceHashesMatch = false;
+            else
+            {
+                var actualSource = await scope.ServiceProvider.GetRequiredService<IFileHashService>()
+                    .ComputeHashAsync(job.FilePath, CancellationToken.None);
+                sourceHashesMatch &= string.Equals(actualSource, job.FileHash, StringComparison.OrdinalIgnoreCase);
+            }
             if (job.Status != ImportStatus.Completed || string.IsNullOrWhiteSpace(job.DestinationPath) ||
                 job.AcceptedBook?.FilePath != job.DestinationPath)
             {
@@ -223,7 +233,8 @@ static async Task<VerificationResult> VerifyAsync(BenchmarkFactory factory, IRea
         }
         var audit = await db.LibraryAudits.AsNoTracking().OrderByDescending(item => item.Id).FirstOrDefaultAsync();
         return new VerificationResult(jobs.Count, jobs.Count(job => job.Status == ImportStatus.Completed),
-            sourcesRetained, hashesMatch, audit?.Status == AuditStatus.Completed && audit.ProcessedBooks == inputs.Count &&
+            sourcesRetained, sourceHashesMatch, hashesMatch, stagingSettled,
+            audit?.Status == AuditStatus.Completed && audit.ProcessedBooks == inputs.Count &&
             audit.VerifiedBooks == inputs.Count && audit.MissingBooks == 0 && audit.ChangedBooks == 0 && audit.UnavailableBooks == 0,
             audit?.ProcessedBooks ?? 0, audit?.VerifiedBooks ?? 0, audit?.MissingBooks ?? 0,
             audit?.ChangedBooks ?? 0, audit?.UnavailableBooks ?? 0,
@@ -246,6 +257,8 @@ static void DeleteOwnedRoot(string root)
 
 sealed class BenchmarkFactory(string connection, string ingest, string library, BenchmarkClock clock) : WebApplicationFactory<MetadataEnricherService>
 {
+    private readonly NpgsqlDataSource databaseSource = NpgsqlDataSource.Create(connection);
+    private int sourceDisposed;
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseContentRoot(Path.Combine(Directory.GetCurrentDirectory(), "src", "Paparr.API"));
@@ -268,7 +281,26 @@ sealed class BenchmarkFactory(string connection, string ingest, string library, 
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(clock);
+            services.AddDbContext<AppDbContext>(options => options.UseNpgsql(databaseSource));
         });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        try { base.Dispose(disposing); }
+        finally
+        {
+            if (disposing && Interlocked.Exchange(ref sourceDisposed, 1) == 0) databaseSource.Dispose();
+        }
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        try { await base.DisposeAsync(); }
+        finally
+        {
+            if (Interlocked.Exchange(ref sourceDisposed, 1) == 0) await databaseSource.DisposeAsync();
+        }
     }
 }
 
@@ -286,39 +318,34 @@ sealed class BenchmarkClock(DateTimeOffset initialUtc) : TimeProvider
     }
 }
 
-sealed record BenchmarkOptions(int Files, string? Output);
-sealed record BenchmarkArguments(BenchmarkOptions? Options, string? Error)
-{
-    public static BenchmarkArguments Parse(string[] args)
-    {
-        var files = 10;
-        string? output = null;
-        for (var index = 0; index < args.Length; index++)
-        {
-            var flag = args[index];
-            if (++index >= args.Length) return new(null, $"Missing value for {flag}.");
-            var value = args[index];
-            if (flag == "--files" && int.TryParse(value, out files) && files is >= 2 and <= 100) continue;
-            if (flag == "--output" && !string.IsNullOrWhiteSpace(value)) { output = value; continue; }
-            return new(null, $"Unknown option or invalid value: {flag} {value}.");
-        }
-        return new(new BenchmarkOptions(files, output), null);
-    }
-}
-
-sealed record BenchmarkConfiguration(int Files, long SyntheticBytes, string FixtureTypes, string ProviderMode);
+sealed record BenchmarkConfiguration(int Files, int ContentMiB, long RequestedContentBytes, long SyntheticBytes,
+    long PdfBytes, long EpubBytes, long MaximumInputBytes, string FixtureTypes, string ContentMode, string ProviderMode);
 sealed record StartupMeasurements(double PostgreSqlContainerMilliseconds, double HostAndMigrationsMilliseconds,
     double FixtureCreationMilliseconds);
 sealed record PipelineMeasurements(double InitialDiscoveryMilliseconds, double DiscoveryMilliseconds,
     int SimulatedStabilityWaitSeconds, double MetadataExtractionAndReviewQueueMilliseconds,
-    double ExplicitApprovalAndPublicationMilliseconds, double LibraryAuditMilliseconds);
+    double ExplicitApprovalAndPublicationMilliseconds, double LibraryAuditMilliseconds, double StagingMaintenanceMilliseconds);
+sealed record StageCounts(int Planned, int Owned, int Published, int Cleaned, int Retained)
+{
+    public int Total => Planned + Owned + Published + Cleaned + Retained;
+    public int Pending => Planned + Owned + Published;
+}
+sealed record StagingSettlementResult(int ExpectedJournalRows, int BatchCalls, StageCounts Before, StageCounts After,
+    int RemainingPartialFiles)
+{
+    public bool AllChecksPassed => Before.Total == ExpectedJournalRows && Before.Published == ExpectedJournalRows &&
+        After.Total == ExpectedJournalRows && After.Cleaned == ExpectedJournalRows && After.Pending == 0 &&
+        After.Retained == 0 && RemainingPartialFiles == 0;
+}
 sealed record VerificationResult(int DiscoveredJobs, int CompletedImports, bool AllSourcesRetained,
-    bool AllPublishedHashesVerified, bool AuditCompletedWithoutFaults, int AuditProcessed, int AuditVerified,
+    bool AllSourceHashesVerified, bool AllPublishedHashesVerified, bool AllStagingJournalsSettled,
+    bool AuditCompletedWithoutFaults, int AuditProcessed, int AuditVerified,
     int AuditMissing, int AuditChanged, int AuditUnavailable, long PublishedBytes)
 {
     public bool AllChecksPassed => DiscoveredJobs > 0 && CompletedImports == DiscoveredJobs && AllSourcesRetained &&
-        AllPublishedHashesVerified && AuditCompletedWithoutFaults;
+        AllSourceHashesVerified && AllPublishedHashesVerified && AllStagingJournalsSettled && AuditCompletedWithoutFaults;
 }
 sealed record IngestionBenchmarkResult(string Tool, string Runtime, string OperatingSystem, string Architecture,
     int ProcessorCount, BenchmarkConfiguration Configuration, StartupMeasurements Startup,
-    PipelineMeasurements Pipeline, VerificationResult Results, string Note);
+    PipelineMeasurements Pipeline, StagingSettlementResult Staging, double FinalVerificationMilliseconds,
+    VerificationResult Results, string Note);

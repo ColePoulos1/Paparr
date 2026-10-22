@@ -5,7 +5,7 @@ namespace Paparr.API.Models;
 
 public sealed record ImportJobDto(long Id, string FileName, string Status, DateTime CreatedAt, DateTime UpdatedAt,
     Guid Revision, int AttemptCount, string? LastError, IReadOnlyList<MetadataCandidateDto> Candidates, BookDto? AcceptedBook,
-    IReadOnlyList<ImportEventDto> Events, SourceCleanupDto Cleanup)
+    IReadOnlyList<ImportEventDto> Events, SourceCleanupDto Cleanup, ImportProfileDto Profile)
 {
     public static ImportJobDto From(ImportJob job, bool cleanupEnabled = false) => new(job.Id, Path.GetFileName(job.FilePath), job.Status.ToString(),
         job.CreatedAt, job.UpdatedAt, job.Revision, job.AttemptCount, job.LastError,
@@ -16,8 +16,11 @@ public sealed record ImportJobDto(long Id, string FileName, string Status, DateT
             EditionDto.From(b.Isbn13, b.IsbnStatus, b.Publisher, b.PublicationYear, b.Language)) : null,
         job.Events.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id).Select(e => new ImportEventDto(e.Message, e.CreatedAt)).ToList(),
         new SourceCleanupDto(job.CleanupStatus.ToString(), job.CleanupAttemptCount, job.CleanupError,
-            cleanupEnabled && job.Status == ImportStatus.Completed && job.CleanupStatus == SourceCleanupStatus.Retained));
+            cleanupEnabled && job.Status == ImportStatus.Completed && job.CleanupStatus == SourceCleanupStatus.Retained),
+        new ImportProfileDto(job.ProfileName, job.ProfileIngestSubfolder, job.CollectionSegment, job.FilenameOrder.ToString()));
 }
+
+public sealed record ImportProfileDto(string? Name, string? SourceFolder, string? Collection, string FilenameOrder);
 
 public sealed record SourceCleanupDto(string Status, int AttemptCount, string? Error, bool CanRetry);
 public sealed record MetadataCandidateDto(long Id, string Title, string Author, string Source, string ExternalId,

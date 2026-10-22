@@ -13,6 +13,7 @@ Paparr keeps an import history and verifies file content before publication. Ori
 - EPUB and PDF metadata extraction, with filename fallback.
 - Open Library and Google Books candidates with source labels, matching evidence, caching, and rate-limit handling.
 - Edition details with ISBN checksum checks, publisher, publication year, and language.
+- Folder profiles that route watch subfolders into library collections and select a filename fallback order.
 - A responsive review workspace with search, pagination, manual metadata, destination previews, and event history.
 - Collision-safe publication, content verification, bounded attempts, retry, and recovery of interrupted jobs.
 - Journaled temporary-file maintenance that preserves active attempts and files without confirmed ownership.
@@ -66,4 +67,4 @@ Read the [development guide](DEVELOPMENT_GUIDE.md), [architecture](docs/architec
 
 ## Project status
 
-Paparr is an early project undergoing an overhaul. Folder profiles and separate edition/file modeling remain planned work. See the [changelog](CHANGELOG.md) for the current release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [benchmarks](docs/performance.md) for measured behavior.
+Paparr 0.2.0 is the first release checkpoint of this overhaul. Separate edition/file modeling remains planned. See the [changelog](CHANGELOG.md) for the release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [handoff](docs/handoff.md) for the next work.

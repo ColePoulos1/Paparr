@@ -80,6 +80,28 @@ To undo a completed import, open its details under **Imported**, choose **Undo i
 
 Saved undo work resumes after interruption. **Returning to review** shows pending operations and retained failures; restore the expected copies or correct permissions, refresh its status, then retry the same operation. Integrity scans and undo cannot start over one another. Empty folders remain, and import history is preserved.
 
+### Folder profiles
+
+Optional startup configuration can route an ingest subfolder into a library collection and select its filename fallback order. For Compose, create `compose.profiles.yml` beside the main file:
+
+```yaml
+services:
+  paparr-api:
+    environment:
+      FolderProfiles__0__Name: Research
+      FolderProfiles__0__IngestSubfolder: research/papers
+      FolderProfiles__0__Collection: Research
+      FolderProfiles__0__FilenameOrder: AuthorTitle
+```
+
+Start with `docker compose -f docker-compose.yml -f compose.profiles.yml up --build -d --wait`. Files under `research/papers` in the ingest mount use the `Research` library folder. Omit `Collection` for a filename-only profile. Additional profiles use indices `1`, `2`, and so on. Local development can use the equivalent `FolderProfiles` array in configuration.
+
+`AuthorTitle` parses `Author - Title - Subtitle` as author `Author` and title `Title - Subtitle`. The default `TitleAuthor` splits at the last spaced dash. Complete embedded metadata takes priority, and every import still requires approval.
+
+The longest complete folder prefix wins; `research` does not match `research2`. Configured paths accept either separator but must be relative portable segments without traversal, rooted paths, or reparse points. Collection names are a single portable segment, bounded to 70 UTF-8 bytes. Profile names and prefixes cannot differ only by case; case-only collection aliases are also rejected. Matching ignores case on Windows and uses ordinal case-sensitive comparison on Linux. Case-insensitive Unix volumes are not covered by the release checks.
+
+The profile is captured on first durable discovery. Editing or removing configuration affects new jobs; it does not reroute existing review, retries, duplicates, or undo/reapproval. A content duplicate keeps the original job's profile. Existing records retain the default rules. Keep configured mount paths stable when upgrading: already-approved work retains its saved destination and fails safely if it no longer belongs to the configured library.
+
 Library health scans compare each recorded library file with its original hash. They can resume after a restart and never repair files automatically. Verify a backup before replacing a file reported as changed or missing.
 
 Each library row has a Download action. The server checks the file against its original hash before delivery. Changed, missing, unreadable, or unsupported files return an actionable error in the library view. Downloads do not repair files or update integrity results. Authorized API clients can use `GET /api/library/{id}/file` with HTTP byte ranges; the configured file-size limit applies.

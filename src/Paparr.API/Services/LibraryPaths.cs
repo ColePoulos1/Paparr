@@ -1,4 +1,5 @@
 using System.Text;
+using Paparr.API.Domain;
 
 namespace Paparr.API.Services;
 
@@ -54,14 +55,43 @@ public static class LibraryPaths
         }
     }
 
-    public static string Destination(string root, string title, string author, string extension, string hash)
+    public static string Destination(string root, string title, string author, string extension, string hash, string? collection = null)
     {
         if (hash.Length != 64 || !hash.All(Uri.IsHexDigit)) throw new ArgumentException("Invalid SHA-256 hash.", nameof(hash));
         extension = extension.ToLowerInvariant();
         if (extension is not ".epub" and not ".pdf") throw new ArgumentException("Unsupported ebook format.", nameof(extension));
-        var path = Path.GetFullPath(Path.Combine(root, Segment(author), Segment(title),
+        var collectionRoot = CollectionRoot(root, collection);
+        var path = Path.GetFullPath(Path.Combine(collectionRoot, Segment(author), Segment(title),
             $"{Segment(title)} - {Segment(author)} [{hash[..12].ToLowerInvariant()}]{extension}"));
-        EnsureSafe(root, path);
+        EnsureSafeDestination(root, path, collection);
         return path;
+    }
+
+    public static string ImportDestination(string root, ImportJob job, MetadataCandidate candidate)
+    {
+        try
+        {
+            return Destination(root, candidate.Title, candidate.Author, Path.GetExtension(job.FilePath), job.FileHash, job.CollectionSegment);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            throw new ImportConflictException("The saved collection or library path is unsafe. Check the folder profile and library directory before importing.");
+        }
+    }
+
+    public static void EnsureSafeDestination(string root, string destination, string? collection)
+    {
+        var collectionRoot = CollectionRoot(root, collection);
+        EnsureSafe(root, collectionRoot);
+        EnsureSafe(root, destination);
+        EnsureSafe(collectionRoot, destination);
+    }
+
+    private static string CollectionRoot(string root, string? collection)
+    {
+        if (collection is null) return root;
+        if (!FolderProfiles.IsPortableSegment(collection))
+            throw new IOException("The saved collection name is invalid. Check the folder profile before importing.");
+        return Path.Combine(root, collection);
     }
 }

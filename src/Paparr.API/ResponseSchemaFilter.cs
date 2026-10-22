@@ -23,6 +23,7 @@ public sealed class ResponseSchemaFilter : ISchemaFilter
 
         if (schema is not OpenApiSchema responseSchema || responseSchema.Properties is null) return;
         if (type == typeof(ImportJobDto)) SetEnum(responseSchema, "status", typeof(ImportStatus));
+        else if (type == typeof(ImportProfileDto)) SetEnum(responseSchema, "filenameOrder", typeof(FilenameOrder));
         else if (type == typeof(SourceCleanupDto)) SetEnum(responseSchema, "status", typeof(SourceCleanupStatus));
         else if (type == typeof(LibraryBookDto)) SetEnum(responseSchema, "integrityStatus", typeof(IntegrityStatus));
         else if (type == typeof(LibraryAuditDto)) SetEnum(responseSchema, "status", typeof(AuditStatus));

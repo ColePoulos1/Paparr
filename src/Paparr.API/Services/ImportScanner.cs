@@ -65,15 +65,21 @@ public sealed class ImportScanner(AppDbContext db, IFileHashService hashes, File
                     await RecordDuplicateSourceAsync(existing, path, ct);
                     continue;
                 }
+                var profile = FolderProfiles.Select(options.Value.FolderProfiles, root, path);
                 var now = clock.GetUtcNow().UtcDateTime;
                 db.ImportJobs.Add(new ImportJob
                 {
                     FilePath = path,
                     FileHash = fileHash,
+                    ProfileName = profile?.Name,
+                    ProfileIngestSubfolder = profile?.IngestSubfolder,
+                    CollectionSegment = profile?.Collection,
+                    FilenameOrder = profile?.FilenameOrder ?? FilenameOrder.TitleAuthor,
                     Status = ImportStatus.Pending,
                     CreatedAt = now,
                     UpdatedAt = now,
-                    Events = [new ImportEvent { Message = "Discovered a stable ebook file.", CreatedAt = now }]
+                    Events = [new ImportEvent { Message = profile is null ? "Discovered a stable ebook file."
+                        : $"Discovered a stable ebook file using folder profile '{profile.Name}'.", CreatedAt = now }]
                 });
                 await db.SaveChangesAsync(ct);
             }

@@ -69,7 +69,11 @@ Operations check root containment and reject symbolic links/reparse points. Papa
 
 ## Metadata
 
-VersOne.Epub reads EPUB metadata; PdfPig reads PDF metadata. Filename fallback splits at the last spaced dash. Choices expose their origin and matching evidence. Similarity scores are not calibrated probabilities; every import requires approval.
+Folder profiles are startup configuration. Discovery selects the longest complete ingest-relative folder prefix and saves its name, source folder, optional collection, and filename order on the new import. The content-hash constraint means the first durable job owns this snapshot; duplicate observations cannot replace it. Legacy rows receive `TitleAuthor` with no profile or collection.
+
+Collection names are exact portable path segments. Preview and approval share one destination helper, and execution rechecks the saved collection and destination against the configured library. Profile changes do not alter saved jobs; undo preserves the snapshot. Filename order affects only fallback parsing, while complete embedded metadata remains preferred. Windows matching ignores case; Linux matching is ordinal and case-sensitive.
+
+VersOne.Epub reads EPUB metadata; PdfPig reads PDF metadata. Default filename fallback splits at the last spaced dash; author-first profiles use the first separator. Choices expose their origin and matching evidence. Similarity scores are not calibrated probabilities; every import requires approval.
 
 Edition fields travel with each candidate and the approved book. ISBN-10 values convert to ISBN-13 only after checksum validation. Missing, invalid, and multiple distinct valid identifiers have different states; ambiguous identifiers are not reduced to a guessed ISBN. Publisher, year, and language are bounded optional values. Open Library search results summarize works and can span editions, so only individually unambiguous fields are shown and their evidence carries that caveat. [Open Library's search documentation](https://openlibrary.org/dev/docs/api/search) explains the work/edition distinction.
 

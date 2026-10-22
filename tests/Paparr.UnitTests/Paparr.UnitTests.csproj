@@ -17,6 +17,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <Compile Include="../Fixtures/PdfFixture.cs" Link="PdfFixture.cs" />
+    <Compile Include="../../tools/Paparr.IngestionBenchmarks/BenchmarkArguments.cs" Link="BenchmarkArguments.cs" />
+    <Compile Include="../../tools/Paparr.IngestionBenchmarks/BenchmarkFixtures.cs" Link="BenchmarkFixtures.cs" />
   </ItemGroup>
 
   <ItemGroup>

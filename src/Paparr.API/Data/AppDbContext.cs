@@ -43,6 +43,10 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.FilePath).IsRequired();
             entity.Property(e => e.FileHash).IsRequired();
+            entity.Property(e => e.ProfileName).HasMaxLength(100);
+            entity.Property(e => e.ProfileIngestSubfolder).HasMaxLength(1024);
+            entity.Property(e => e.CollectionSegment).HasMaxLength(70);
+            entity.Property(e => e.FilenameOrder).HasConversion<string>().HasMaxLength(20).HasDefaultValue(FilenameOrder.TitleAuthor);
             entity.Property(e => e.Status).HasConversion<string>();
             entity.Property(e => e.CleanupStatus).HasConversion<string>();
             entity.Property(e => e.Revision).IsConcurrencyToken();

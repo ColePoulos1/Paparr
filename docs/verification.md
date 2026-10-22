@@ -1,27 +1,27 @@
 # Verification record
 
-## October 21, 2026
+## October 22, 2026 release checkpoint
 
 Executed locally on Windows with .NET SDK 10.0.301/runtime 10.0.9, Node 24, Docker Desktop, and PostgreSQL 18.6 containers. Fixtures and databases were disposable; no personal library was used.
 
 | Check | Result |
 | --- | --- |
 | Release solution build | Passed, zero warnings and errors |
-| Backend unit tests | 99 passed |
-| PostgreSQL integration tests | 92 passed |
-| React component tests | 53 passed |
+| Backend unit tests | 147 passed |
+| PostgreSQL integration tests | 97 passed |
+| React component tests | 56 passed |
 | Desktop/mobile browser tests with controlled API responses | 12 passed |
 | Frontend lint and production build | Passed |
 | NuGet transitive dependency audit | No known vulnerabilities reported |
 | Clean Docker frontend dependency installation | No known vulnerabilities reported |
 
-The current suites passed 256 tests in total, with lint, production builds, generated-contract checks, and the coverage/release script fixtures. API schema tests cover response nullability, request constructor validation, enum values, and path privacy. Deliberately changing a generated contract caused the drift check to fail; restoring it passed.
+The current suites passed 312 tests in total through `scripts/verify.ps1 -Coverage`, with lint, production builds, generated-contract checks, and the coverage/release script fixtures. API schema tests cover response nullability, request constructor validation, enum values, and path privacy. Deliberately changing a generated contract caused the drift check to fail; restoring it passed. Fresh npm and transitive NuGet advisory checks reported no known vulnerabilities.
 
 Integration tests exercise real PostgreSQL migrations and constraints, concurrent approvals, publication commit failures and recovery, source cleanup interruption, integrity scan recovery, revocable owner sessions, CSRF validation, password rotation, and trusted proxy handling. An upgrade test seeds the original schema before applying current migrations and checks that its import and book survive.
 
-`pwsh scripts/Test-Deployment.ps1 -Browser -Calibre` passed all thirteen packaged checks in a fresh Compose project: installation and extraction, duplicate discovery and retention, verified publication with source retention, container recreation, read-only integrity checks, database/library restoration into separate locations, owner-only verified downloads and Calibre archives, session persistence and revocation, desktop/mobile browser review, undo and reapproval, and actual Calibre imports into isolated libraries. The browser run edited missing metadata including ISBN, publisher, year, and language, confirmed approval committed, scanned both library files, downloaded matching original bytes, exported approved metadata, inspected worker stages, undid and reapproved an import, displayed a failed import, and confirmed a copied session stopped working after sign-out. A filesystem check confirmed the original remained unchanged after undo and reapproval; the republished download matched its hash. Calibre 5.44 preserved the approved title, author, ISBN, publisher, year, and language from the browser export. No browser page errors or page-wide horizontal overflow were observed. The script removed its own containers, volumes, and images afterward.
+`pwsh scripts/Test-Deployment.ps1 -Browser -Calibre` passed all fourteen packaged checks in a fresh Compose project: installation and extraction, duplicate discovery and retention, verified publication with source retention, container recreation, read-only integrity checks, database/library restoration into separate locations, owner-only verified downloads and Calibre archives, session persistence and revocation, desktop/mobile browser review, captured folder routing, undo and reapproval, and actual Calibre imports into isolated libraries. The browser run edited missing metadata including ISBN, publisher, year, and language, confirmed approval committed, scanned both library files, downloaded matching original bytes, exported approved metadata, inspected worker stages, undid and reapproved an import, displayed a failed import, and confirmed a copied session stopped working after sign-out. A filesystem check confirmed the original remained unchanged after undo and reapproval; the republished download matched its hash. Calibre 5.44 preserved the approved title, author, ISBN, publisher, year, and language from the browser export. No browser page errors or page-wide horizontal overflow were observed. The script removed its own containers, volumes, and images afterward.
 
-The latest packaged run includes staging diagnostics on desktop and mobile and a mobile undo preview. Evidence is saved under `.tools/paparr-smoke-b72e8c8f998a/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git. Screenshots were inspected and updated. Earlier visual inspection prompted radio-alignment and action-spacing fixes, followed by frontend verification and a rebuilt demo check. The packaged browser driver also has a syntax check before deployment starts.
+The latest packaged run includes staging diagnostics on desktop and mobile and a mobile undo preview. Evidence is saved under `.tools/paparr-smoke-9cbaade76c4e/results.json` and its `browser` directory; these disposable artifacts are intentionally ignored by Git. Screenshots were inspected and updated. Earlier visual inspection prompted radio-alignment and action-spacing fixes, followed by frontend verification and a rebuilt demo check. The packaged browser driver also has a syntax check before deployment starts.
 
 The retained synthetic demo at `http://127.0.0.1:5187` was rebuilt before the staging checkpoint. Its existing library survived that update, and a separate browser check passed owner sign-in, a matching-hash download, desktop/mobile worker status, and sign-out. This demo uses only generated books and its own database and mounts.
 
@@ -49,7 +49,7 @@ Download tests verify EPUB/PDF attachment names and types, Unicode filenames, au
 
 ## Source coverage
 
-Combined backend coverage is 2,162 of 2,313 executable source lines (93.5%), excluding generated migrations and `.g.cs` files. The unit and integration reports under `.tools/coverage-4e09672bbb6246268b37e14b3f86e536` describe the same API source revision. This is line coverage, not combined branch coverage; subprocesses such as the packaged password helper are outside the managed test collector. `scripts/verify.ps1 -Coverage` now collects both suites into a fresh directory and produces this combined summary in the same run.
+Combined backend coverage is 2,249 of 2,401 executable source lines (93.7%), excluding generated migrations and `.g.cs` files. The unit and integration reports under `.tools/coverage-2a9cfa3f818041a083ba656e1b504d17` describe the same API source revision. This is line coverage, not combined branch coverage; subprocesses such as the packaged password helper are outside the managed test collector. `scripts/verify.ps1 -Coverage` collects both suites into a fresh directory and produces this combined summary in the same run.
 
 Coverage analysis led to regressions for changed sources, exhausted retries, cleanup disabled after restart, concurrent cleanup claims, and session renewal after logout. `scripts/Measure-Coverage.ps1` unions report hits by file and line. Its fixture check verifies complementary hits, duplicate classes, generated-file exclusions, path separator normalization, and failure when reports are absent. CI is configured to publish that summary; a hosted CI run is still pending.
 
@@ -70,6 +70,10 @@ A worker regression first reproduced a persistent undo completion failure blocki
 The larger test suite exposed PostgreSQL client exhaustion from cached test-host connection pools. The factory now owns a shared data source and disposes it after its root and child hosts stop. Sync and async disposal regressions observe multiple live sessions, verify a disposed child leaves the parent usable, and then confirm zero database sessions remain after root shutdown. Independent migration and scanner contexts now share that owned source; all fourteen affected integration cases passed after that final adjustment.
 
 ## Scope and limits
+
+Folder-profile checks cover prefix boundaries, native platform case rules, portable names, parsing orders, immutable snapshots after configuration removal, embedded metadata priority, duplicate ownership, migration defaults, and rejection of unsafe saved collection paths. Previewed and actual destinations match; undo and reapproval preserve routing. The packaged run configures a `fiction` watch subfolder and a `Fiction` library collection, verifies the captured profile, and follows that routing through restoration and browser undo/reapproval.
+
+Larger generated-book benchmarks passed two files at 1 MiB and ten at 4 MiB of requested content per file. Both originals and library copies were hashed after staging settlement. A 100-tiny-file run settled all 100 journal rows in five batches with no partial files left. These are successful-publication reconciliation checks, not orphan-byte deletion benchmarks. See [performance](performance.md) for the measured values and local evidence.
 
 - Browser tests use Chromium, including mobile viewport emulation; they do not establish compatibility with Safari or Firefox.
 - Provider tests use controlled responses. Live metadata services, remote certificate provisioning, and public CA validation were not exercised.

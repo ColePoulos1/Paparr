@@ -1,0 +1,30 @@
+.folder-profile {
+  background: #edf3ee;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 8px;
+}
+.folder-profile > strong {
+  display: block;
+  margin: 0.4rem 0 0.8rem;
+}
+.folder-profile dl {
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+.folder-profile dt {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.folder-profile dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.folder-profile p {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0.8rem 0 0;
+}

@@ -67,6 +67,7 @@ export type ImportJobDto = {
     acceptedBook: BookDto | null;
     events: Array<ImportEventDto>;
     cleanup: SourceCleanupDto;
+    profile: ImportProfileDto;
 };
 
 export type ImportJobDtoPagedResult = {
@@ -80,6 +81,13 @@ export type ImportPreviewDto = {
     relativePath: string;
     destinationExists: boolean;
     sourceRetained: boolean;
+};
+
+export type ImportProfileDto = {
+    name: string | null;
+    sourceFolder: string | null;
+    collection: string | null;
+    filenameOrder: 'TitleAuthor' | 'AuthorTitle';
 };
 
 export type ImportStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;

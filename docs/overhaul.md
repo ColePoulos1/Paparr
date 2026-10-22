@@ -8,7 +8,7 @@
 | Safe imports | Durable queue, revision guards, publication fences, verified publication, collision protection, explicit retry, durable source cleanup, staging maintenance, retained-source undo | Larger recovery workloads |
 | Metadata | Real PDF/EPUB parsing, provenance, matching evidence, provider isolation, bounded cache, cooldowns, checked ISBNs and edition details | Calibration against labeled real-world decisions |
 | Review experience | Generated API types with drift checks, search, paging, manual edition choices, destination previews, timeline, draft preservation | More comparative review tools as library size grows |
-| Product features | Edition details in review, read-only resumable integrity scans, library health, duplicate-file history, verified downloads, retained-source undo, synthetic offline demo | Folder profiles |
+| Product features | Edition details in review, read-only resumable integrity scans, library health, duplicate-file history, verified downloads, retained-source undo, captured folder profiles, synthetic offline demo | Separate edition/file model |
 | Library integration | Portable standalone library structure and explicit verified Calibre handoff | Separate edition/file model and synchronization design |
 | Operations | Same-origin proxy, non-root containers, persistent storage, owner sign-in, CSRF/host/origin checks, worker and staging diagnostics, tested restoration, proxy trust regression and local TLS checks | Public TLS provisioning |
 | Release | Screenshots, architecture notes, repeatable deployment checks, reproducible source packaging, hashing and offline ingestion harnesses | Published CI history, full upgrade matrix, sustained/larger-book throughput measurements |
@@ -35,5 +35,7 @@ The original builds passed, but there were no automated tests. PDF extraction us
 
 ## Next implementation priorities
 
-1. Folder profiles and separate edition/file modeling.
-2. Larger ingestion workloads, sustained throughput measurements, and published CI history.
+1. Separate edition/file modeling; define identities and migration before adding synchronization.
+2. Sustained and concurrent workload measurements, published CI history, and a broader upgrade matrix.
+
+The release stopping point and next tasks are recorded in [the handoff](handoff.md).

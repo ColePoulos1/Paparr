@@ -3,6 +3,10 @@ import { emptyDuplicates, job, preview, summary } from "../src/test/fixtures";
 
 test("review a book, approve it, and find it in history", async ({ page }) => {
   let imported = false;
+  const profiledJob = { ...job, profile: {
+    name: "Research", sourceFolder: "research", collection: "Research", filenameOrder: "AuthorTitle",
+  } };
+  const profiledPreview = { ...preview, relativePath: "Research/" + preview.relativePath };
   await page.route("**/api/auth/session", (route) =>
     route.fulfill({
       json: { enabled: false, authenticated: false, csrfToken: null },
@@ -11,7 +15,7 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
   await page.route("**/api/imports**", async (route) => {
     const url = new URL(route.request().url());
     const completed = {
-      ...job,
+      ...profiledJob,
       status: "Completed",
       acceptedBook: {
         id: 1,
@@ -43,7 +47,7 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
         AwaitingApproval: imported ? 0 : 1,
         Completed: imported ? 25 : 24,
       };
-    else if (url.pathname.includes("/preview/")) body = preview;
+    else if (url.pathname.includes("/preview/")) body = profiledPreview;
     else if (url.pathname.includes("/accept/")) {
       imported = true;
       body = completed;
@@ -51,7 +55,7 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
       const show =
         url.searchParams.get("status") === "Completed" ? imported : !imported;
       body = {
-        items: show ? [imported ? completed : job] : [],
+        items: show ? [imported ? completed : profiledJob] : [],
         total: show ? 1 : 0,
         page: 1,
         pageSize: 25,
@@ -60,7 +64,10 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
     await route.fulfill({ json: body });
   });
   await page.goto("/");
-  await expect(page.getByText(preview.relativePath)).toBeVisible();
+  await expect(page.getByText(profiledPreview.relativePath)).toBeVisible();
+  const profile = page.getByRole("region", { name: "Folder profile" });
+  await expect(profile).toContainText("Research");
+  await expect(profile).toContainText("Author — Title");
   await expect(page.getByText("Read from the ebook metadata.")).toBeVisible();
   await expect(
     page.getByRole("region", { name: "Duplicate files", exact: true }),

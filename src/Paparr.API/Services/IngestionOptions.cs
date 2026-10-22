@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ProfileRules = Paparr.API.Services.FolderProfiles;
 
 namespace Paparr.API.Services;
 
@@ -14,6 +15,24 @@ public sealed class IngestionOptions
     public bool DeleteSourceAfterImport { get; set; }
     public bool WorkerEnabled { get; set; } = true;
     public bool MetadataProvidersEnabled { get; set; } = true;
+    public List<FolderProfileOptions> FolderProfiles { get; set; } = [];
+
+    public bool HasValidFolderProfiles()
+    {
+        if (!ProfileRules.AreValid(FolderProfiles)) return false;
+        try
+        {
+            foreach (var profile in FolderProfiles)
+            {
+                var folder = ProfileRules.NormalizeSubfolder(profile.IngestSubfolder)
+                    .Replace('/', Path.DirectorySeparatorChar);
+                LibraryPaths.EnsureSafe(IngestPath, Path.Combine(IngestPath, folder));
+                LibraryPaths.EnsureSafe(LibraryPath, profile.Collection is null ? LibraryPath : Path.Combine(LibraryPath, profile.Collection));
+            }
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { return false; }
+    }
 
     public bool HasSeparateRoots()
     {

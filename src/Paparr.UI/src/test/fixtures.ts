@@ -9,6 +9,7 @@ export const job: ImportJob = {
   createdAt: "2026-10-20T12:00:00Z",
   updatedAt: "2026-10-20T12:01:00Z",
   revision: "revision-1",
+  profile: { name: null, sourceFolder: null, collection: null, filenameOrder: "TitleAuthor" },
   attemptCount: 1,
   lastError: null,
   cleanup: {

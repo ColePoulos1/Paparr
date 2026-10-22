@@ -52,7 +52,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
                 ".pdf" => await metadata.ExtractPdfMetadataAsync(job.FilePath, cancellationToken),
                 _ => throw new InvalidDataException("Unsupported ebook format.")
             };
-            var extracted = embedded ?? metadata.ParseFilename(Path.GetFileName(job.FilePath));
+            var extracted = embedded ?? metadata.ParseFilename(Path.GetFileName(job.FilePath), job.FilenameOrder);
             db.MetadataCandidates.RemoveRange(job.Candidates);
             job.Candidates.Clear();
             if (extracted is { } book)
@@ -66,7 +66,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
                     Source = embedded.HasValue ? "embedded" : "filename",
                     ExternalId = "",
                     ConfidenceScore = embedded.HasValue ? 85 : 60,
-                    Evidence = embedded.HasValue ? "Read from the ebook metadata." : "Parsed from the filename; review before importing.",
+                    Evidence = embedded.HasValue ? "Read from the ebook metadata." : FilenameEvidence(job),
                     Isbn13 = edition?.Isbn13,
                     IsbnStatus = edition?.IsbnStatus ?? EditionIsbnStatus.NotProvided,
                     Publisher = edition?.Publisher,
@@ -97,8 +97,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             throw new ImportConflictException("This import is no longer awaiting review. Refresh its current state.");
         if (candidate.ImportJobId != job.Id)
             throw new ImportConflictException("The selected metadata does not belong to this import.");
-        job.DestinationPath = LibraryPaths.Destination(options.Value.LibraryPath, candidate.Title, candidate.Author,
-            Path.GetExtension(job.FilePath), job.FileHash);
+        job.DestinationPath = LibraryPaths.ImportDestination(options.Value.LibraryPath, job, candidate);
         job.SelectedCandidateId = candidate.Id;
         job.Status = ImportStatus.Publishing;
         job.PublicationFence = Guid.NewGuid();
@@ -124,6 +123,7 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
         var fence = job.PublicationFence!.Value;
         try
         {
+            LibraryPaths.EnsureSafeDestination(options.Value.LibraryPath, job.DestinationPath!, job.CollectionSegment);
             var stage = await staging.PrepareAsync(job, fence, cancellationToken);
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             if (!await OwnsPublicationAsync(job, fence, cancellationToken)) return;
@@ -200,4 +200,11 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
 
     private static (string Title, string Author)? ToTitleAuthor(EmbeddedEpubMetadata? metadata) =>
         metadata is null ? null : (metadata.Title, metadata.Author);
+
+    private static string FilenameEvidence(ImportJob job)
+    {
+        var order = job.FilenameOrder == FilenameOrder.AuthorTitle ? "Author - Title" : "Title - Author";
+        var profile = job.ProfileName is null ? "" : $" for folder profile '{job.ProfileName}'";
+        return $"Parsed from the filename using {order}{profile}; review before importing.";
+    }
 }

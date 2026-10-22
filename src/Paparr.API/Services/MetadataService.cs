@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using UglyToad.PdfPig;
 using VersOne.Epub;
+using Paparr.API.Domain;
 
 namespace Paparr.API.Services;
 
@@ -44,11 +45,16 @@ public sealed class MetadataService : IMetadataService
         return Task.FromResult(Complete(document.Information.Title, document.Information.Author));
     }
 
-    public (string Title, string Author)? ParseFilename(string filename)
+    public (string Title, string Author)? ParseFilename(string filename) => ParseFilename(filename, FilenameOrder.TitleAuthor);
+
+    public (string Title, string Author)? ParseFilename(string filename, FilenameOrder order)
     {
+        if (!Enum.IsDefined(order)) throw new ArgumentOutOfRangeException(nameof(order));
         var stem = Path.GetFileNameWithoutExtension(filename);
-        var separator = stem.LastIndexOf(" - ", StringComparison.Ordinal);
-        return separator <= 0 ? null : Complete(stem[..separator], stem[(separator + 3)..]);
+        var separator = order == FilenameOrder.AuthorTitle ? stem.IndexOf(" - ", StringComparison.Ordinal)
+            : stem.LastIndexOf(" - ", StringComparison.Ordinal);
+        return separator <= 0 ? null : order == FilenameOrder.AuthorTitle
+            ? Complete(stem[(separator + 3)..], stem[..separator]) : Complete(stem[..separator], stem[(separator + 3)..]);
     }
 
     private static (string Title, string Author)? Complete(string? title, string? author)

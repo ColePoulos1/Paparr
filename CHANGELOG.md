@@ -1,11 +1,12 @@
 # Changelog
 
-## 0.2.0 — Unreleased
+## 0.2.0 — 2026-10-22
 
 - Rebuilt ingestion around persisted claims, leases, revision checks, and bounded retries.
 - Added verified publication without replacement and recoverable optional source cleanup.
 - Fenced publication attempts against stale workers and added journaled temporary-file maintenance with owner-only diagnostics.
 - Added retained-source undo with verified previews, durable recovery, operation-id replay protection, and coordination with source cleanup and integrity scans.
+- Added folder profiles with captured collection routing and filename order, preserved through retries and undo.
 - Replaced broken PDF extraction with PdfPig and retained metadata provenance.
 - Added provider caching, shared requests, response limits, deadlines, and rate-limit cooldowns.
 - Bounded repeated hashing of unchanged ingest files while retaining periodic revalidation.
@@ -25,6 +26,7 @@
 - Added owner sign-in, persisted revocable sessions, CSRF validation, password rotation, and sign-in rate limits.
 - Added unit, PostgreSQL integration, component, browser, migration, and deployment/restore checks.
 - Added combined source-line coverage reporting and regressions for policy changes, extraction failures, and session renewal races.
+- Added bounded larger PDF/EPUB benchmark fixtures, source hash verification, and staging journal settlement measurements.
 - Added project instructions, skills, CI, demo fixtures, and architecture documentation.
 
 Imports now require explicit review, and originals are retained by default. Paparr does not directly manage a Calibre database.
