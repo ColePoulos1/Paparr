@@ -10,6 +10,7 @@ public class ImportJob
     public DateTime UpdatedAt { get; set; }
     public Guid Revision { get; set; } = Guid.NewGuid();
     public Guid? PublicationFence { get; set; }
+    public Guid? CurrentUndoId { get; set; }
     public int AttemptCount { get; set; }
     public string? LastError { get; set; }
     public DateTime? LeaseExpiresAt { get; set; }
@@ -25,5 +26,5 @@ public class ImportJob
     public Book? AcceptedBook { get; set; }
 }
 
-public enum ImportStatus { Pending, Processing, AwaitingApproval, Publishing, Completed, Failed }
+public enum ImportStatus { Pending, Processing, AwaitingApproval, Publishing, Completed, Failed, Undoing }
 public enum SourceCleanupStatus { NotRequested, Pending, Completed, Retained }

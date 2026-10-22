@@ -5,6 +5,7 @@
 - Rebuilt ingestion around persisted claims, leases, revision checks, and bounded retries.
 - Added verified publication without replacement and recoverable optional source cleanup.
 - Fenced publication attempts against stale workers and added journaled temporary-file maintenance with owner-only diagnostics.
+- Added retained-source undo with verified previews, durable recovery, operation-id replay protection, and coordination with source cleanup and integrity scans.
 - Replaced broken PDF extraction with PdfPig and retained metadata provenance.
 - Added provider caching, shared requests, response limits, deadlines, and rate-limit cooldowns.
 - Bounded repeated hashing of unchanged ingest files while retaining periodic revalidation.

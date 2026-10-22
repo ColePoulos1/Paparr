@@ -6,6 +6,10 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
+if ($Browser) {
+    & node --check (Join-Path $PSScriptRoot 'Test-Browser.mjs')
+    if ($LASTEXITCODE -ne 0) { throw 'Packaged browser script failed its syntax check.' }
+}
 $project = 'paparr-smoke-' + [Guid]::NewGuid().ToString('N').Substring(0, 12)
 $testRoot = Join-Path $repoRoot ".tools/$project"
 $ingest = Join-Path $testRoot 'ingest'
@@ -177,6 +181,8 @@ try {
             ConvertTo-Json -Compress | & node (Join-Path $PSScriptRoot 'Test-Browser.mjs')
         if ($LASTEXITCODE -ne 0) { throw 'Packaged browser checks failed.' }
         $checks.Add('Packaged desktop/mobile UI signs in, reviews missing metadata, imports, scans, and revokes sessions')
+        Assert-Equal $expectedHash (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash 'Original retained after browser undo and reapproval'
+        $checks.Add('Browser undo retains the original and reapproval republishes matching bytes')
         if ($Calibre) {
             & (Join-Path $PSScriptRoot 'Test-CalibreExport.ps1') -ArchivePath (Join-Path $testRoot 'browser/calibre-notebook.zip')
             $checks.Add('Installed Calibre preserves manually approved edition metadata from the browser export')

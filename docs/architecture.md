@@ -11,6 +11,8 @@ stateDiagram-v2
     Processing --> AwaitingApproval: metadata ready
     AwaitingApproval --> Publishing: approve
     Publishing --> Completed: verify and commit
+    Completed --> Undoing: retained-source undo
+    Undoing --> AwaitingApproval: verified removal
     Processing --> Failed
     Publishing --> Failed
     Failed --> Pending: retry
@@ -46,6 +48,18 @@ File maintenance processes at most 20 due journal entries per cycle. It locks th
 A crash between exclusive file creation and the ownership commit leaves an uncertain file. If it is present, maintenance retains it for manual review and logs the import and stage IDs. Legacy and other untracked temporary files are never enumerated or deleted. The worker screen reports active, pending, retained, and settled attempts; settled counts include files already absent. These owner-only database counts are separate from process diagnostics, so a database outage does not prevent viewing the worker snapshot.
 
 The filesystem and PostgreSQL do not share a transaction. This protocol makes interrupted work replayable, assuming the filesystem honors flush and rename semantics. It cannot guarantee durability after a storage-device failure.
+
+## Retained-source undo
+
+Undo returns a completed import to review while retaining its original file. A read-only preview verifies the recorded source and library copy, reports their relative paths, and captures the current import revision. Starting undo rechecks that decision under the import row lock. Missing, changed, oversized, unsafe, or unreadable copies prevent a new request; duplicate observations do not replace the recorded original.
+
+Before deleting anything, Paparr saves an undo journal containing the operation ID, book ID, exact paths, and original hash, changes the import to `Undoing`, and disables its source cleanup. Execution locks the parent row, checks that snapshot and both files again, removes only the library file, and atomically removes the book record and returns the import to `AwaitingApproval`. Candidates, events, duplicate history, and the original content identity remain. Explicit approval republishes the file; the scanner cannot approve it automatically.
+
+The operation ID stays bound to its original book. Repeating a completed request cannot undo a later reapproval. A failed completion commit after file deletion leaves durable undo intent; recovery verifies the retained original and can reconcile an already absent destination. Cancellation rolls back the current database transaction, leaving that intent available after restart. Access failures retry up to three times before requiring an explicit retry of the same operation. Pending and retained undo operations remain visible under **Returning to review**.
+
+Source cleanup now locks the same parent row after its durable claim, checks its revision and current status again, and holds that lock through verification, deletion, and completion. An obsolete cleanup attempt cannot remove an original after undo wins ownership. If cleanup wins first and removes the original, undo is unavailable.
+
+Audit and undo admission share a PostgreSQL transaction advisory lock. A new undo waits for any active integrity scan to finish; a new scan is rejected while an import is undoing. This keeps the scan's book count and cursor meaningful. Undo does not restore deleted originals, choose alternate duplicate sources, delete empty folders, or erase import history.
 
 ## Paths
 

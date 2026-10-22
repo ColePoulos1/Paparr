@@ -46,6 +46,7 @@ export const statuses: Status[] = [
   "Pending",
   "Processing",
   "Publishing",
+  "Undoing",
   "Failed",
   "Completed",
 ];
@@ -54,6 +55,7 @@ export const labels: Record<Status, string> = {
   Pending: "Queued",
   Processing: "Reading metadata",
   Publishing: "Saving to library",
+  Undoing: "Returning to review",
   Failed: "Needs attention",
   Completed: "Imported",
 };

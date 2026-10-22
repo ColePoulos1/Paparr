@@ -56,6 +56,7 @@ export const summary: Summary = {
   Pending: 2,
   Processing: 1,
   Publishing: 0,
+  Undoing: 0,
   Completed: 24,
   Failed: 0,
 };

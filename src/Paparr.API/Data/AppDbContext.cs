@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<AuthSession> AuthSessions { get; set; } = null!;
     public DbSet<DuplicateSource> DuplicateSources { get; set; } = null!;
     public DbSet<PublicationStage> PublicationStages { get; set; } = null!;
+    public DbSet<ImportUndo> ImportUndos { get; set; } = null!;
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
@@ -77,6 +78,16 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Status).HasConversion<string>();
             entity.HasIndex(e => e.FilePath).IsUnique();
             entity.HasIndex(e => new { e.Status, e.CleanupAfter });
+            entity.HasOne<ImportJob>().WithMany().HasForeignKey(e => e.ImportJobId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ImportUndo>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Status).HasConversion<string>();
+            entity.HasIndex(e => new { e.Status, e.RetryAfter });
+            entity.HasIndex(e => new { e.ImportJobId, e.CreatedAt });
             entity.HasOne<ImportJob>().WithMany().HasForeignKey(e => e.ImportJobId)
                 .OnDelete(DeleteBehavior.Restrict);
         });

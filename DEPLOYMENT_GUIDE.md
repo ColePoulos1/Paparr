@@ -76,6 +76,10 @@ Expand **Show temporary file status** on the worker screen for publication stagi
 
 Files left by older versions and other untracked `.partial` files are never swept automatically. Before manually removing a retained file, stop the API, back up the database and files, and use the journal and logs to establish which attempt created it. Do not infer ownership from a filename or its age.
 
+To undo a completed import, open its details under **Imported**, choose **Undo import…**, and review the original and library paths before confirming. Both recorded files must match their original hash. Paparr removes the library copy and its book record, keeps the original, and returns the existing import to **Needs review**. Approve it again to republish. Undo is unavailable if source cleanup already removed the original; historical duplicate files are not substitutes.
+
+Saved undo work resumes after interruption. **Returning to review** shows pending operations and retained failures; restore the expected copies or correct permissions, refresh its status, then retry the same operation. Integrity scans and undo cannot start over one another. Empty folders remain, and import history is preserved.
+
 Library health scans compare each recorded library file with its original hash. They can resume after a restart and never repair files automatically. Verify a backup before replacing a file reported as changed or missing.
 
 Each library row has a Download action. The server checks the file against its original hash before delivery. Changed, missing, unreadable, or unsupported files return an actionable error in the library view. Downloads do not repair files or update integrity results. Authorized API clients can use `GET /api/library/{id}/file` with HTTP byte ranges; the configured file-size limit applies.

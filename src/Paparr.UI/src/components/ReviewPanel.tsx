@@ -3,6 +3,7 @@ import { labels, request } from "../api";
 import type { ImportJob, Preview } from "../api";
 import DuplicateSources from "./DuplicateSources";
 import EditionDetails from "./EditionDetails";
+import UndoImport from "./UndoImport";
 import { hasEditionDetails } from "../edition";
 
 export default function ReviewPanel({
@@ -130,7 +131,7 @@ export default function ReviewPanel({
         {job.acceptedBook?.title ?? candidate?.title ?? "Give this book a name"}
       </h2>
       <p className="muted filename">{job.fileName}</p>
-      {job.lastError && <div className="notice error">{job.lastError}</div>}
+      {job.lastError && job.status !== "Undoing" && <div className="notice error">{job.lastError}</div>}
       {error && (
         <div className="notice error" role="alert">
           {error}
@@ -325,7 +326,7 @@ export default function ReviewPanel({
             {job.acceptedBook.source}
           </small>
           <small>
-            Source cleanup: {{
+            Source cleanup: {job.status === "Undoing" ? "Paused during undo" : {
               NotRequested: "Original retained",
               Pending: "Source cleanup queued",
               Completed: "Source cleanup completed",
@@ -347,6 +348,7 @@ export default function ReviewPanel({
           )}
         </div>
       )}
+      {(job.status === "Completed" || job.status === "Undoing") && <UndoImport job={job} onChange={onChange} disabled={busy} />}
       <DuplicateSources jobId={job.id} />
       <div className="section-heading timeline-heading">
         <h3>Import history</h3>

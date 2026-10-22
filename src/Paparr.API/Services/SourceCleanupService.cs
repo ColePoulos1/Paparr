@@ -30,6 +30,14 @@ public sealed class SourceCleanupService(AppDbContext db, ILibraryPublisher publ
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return; }
 
+        var claimedRevision = job.Revision;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var current = await db.ImportJobs.FromSqlInterpolated($"SELECT * FROM \"ImportJobs\" WHERE \"Id\" = {job.Id} FOR UPDATE")
+            .AsNoTracking().SingleAsync(ct);
+        if (current.Status != ImportStatus.Completed || current.Revision != claimedRevision ||
+            current.CleanupStatus != SourceCleanupStatus.Pending || current.CurrentUndoId.HasValue ||
+            current.FilePath != job.FilePath || current.DestinationPath != job.DestinationPath || current.FileHash != job.FileHash) return;
+
         try
         {
             await publisher.CleanupSourceAsync(job.FilePath, job.DestinationPath!, job.FileHash, ct);
@@ -50,6 +58,7 @@ public sealed class SourceCleanupService(AppDbContext db, ILibraryPublisher publ
                 ? "Source cleanup will be retried." : "Source cleanup needs attention. The library import is complete.");
         }
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task QueueRetryAsync(ImportJob job, CancellationToken ct)

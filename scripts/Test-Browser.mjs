@@ -105,6 +105,26 @@ try {
     .toContainText("copies/The Quiet Atlas copy.epub");
   expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await mobile.screenshot({ path: join(outputDirectory, "duplicates-mobile.png"), fullPage: true });
+  await mobile.getByRole("button", { name: "Undo import…" }).click();
+  const undo = mobile.getByRole("region", { name: "Undo import", exact: true });
+  await expect(undo.getByText("Keep original", { exact: true })).toBeVisible();
+  await expect(undo.getByRole("button", { name: "Undo import", exact: true })).toBeEnabled();
+  expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await mobile.screenshot({ path: join(outputDirectory, "undo-mobile.png"), fullPage: true });
+  const undoResponse = mobile.waitForResponse(response => /\/api\/imports\/\d+\/undo$/.test(response.url()) && response.request().method() === "POST");
+  await undo.getByRole("button", { name: "Undo import", exact: true }).click();
+  const undone = await (await undoResponse).json();
+  expect(undone.status).toBe("AwaitingApproval");
+  expect(undone.acceptedBook).toBeNull();
+  await mobile.getByRole("button", { name: "Review again" }).click();
+  await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  const reapprovalResponse = mobile.waitForResponse(response => /\/api\/imports\/\d+\/accept\/\d+$/.test(response.url()) && response.request().method() === "POST");
+  await mobile.getByRole("button", { name: "Approve & import" }).click();
+  const republished = await (await reapprovalResponse).json();
+  expect(republished.status).toBe("Completed");
+  const republishedFile = await mobileContext.request.get(url + `/api/library/${republished.acceptedBook.id}/file`);
+  expect(republishedFile.status()).toBe(200);
+  expect(createHash("sha256").update(await republishedFile.body()).digest("hex").toUpperCase()).toBe(expectedHash);
   await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Needs attention/ }).click();
   await mobile.getByRole("button", { name: /Incomplete download.pdf/ }).click();
   await expect(mobile.getByRole("region", { name: "Import details" }))
@@ -114,7 +134,7 @@ try {
   await expect(page.getByRole("heading", { name: "Sign in to Paparr" })).toBeVisible();
   expect((await mobileContext.request.get(url + "/api/imports")).status()).toBe(401);
   expect(errors).toEqual([]);
-  console.log("Packaged desktop/mobile browser checks passed: sign-in, duplicates, manual review, approval, integrity scan, failed import, and revoked session.");
+  console.log("Packaged desktop/mobile browser checks passed: sign-in, duplicates, manual review, approval, undo and reapproval, integrity scan, failed import, and revoked session.");
 } catch (error) {
   await page?.screenshot({ path: join(outputDirectory, "failure.png"), fullPage: true }).catch(() => {});
   const message = String(error).replaceAll(password, "[redacted]");

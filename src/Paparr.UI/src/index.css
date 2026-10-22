@@ -162,7 +162,8 @@ h3 {
   background: #b5614e;
 }
 .status-dot.Processing,
-.status-dot.Publishing {
+.status-dot.Publishing,
+.status-dot.Undoing {
   background: #6a83aa;
 }
 .sidebar-note {
@@ -395,7 +396,8 @@ h3 {
   color: #974c3b;
 }
 .badge.Processing,
-.badge.Publishing {
+.badge.Publishing,
+.badge.Undoing {
   background: #e6edf6;
   color: #4e6b95;
 }

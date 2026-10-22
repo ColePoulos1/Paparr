@@ -30,7 +30,7 @@ public sealed class DuplicateSourceTests(PostgresFixture postgres)
         Assert.False(stability.IsReady(new FileInfo(original), StabilityDelay));
         clock.Advance(StabilityDelay);
 
-        var dbOptions = DatabaseOptions(app.ConnectionString);
+        var dbOptions = DatabaseOptions(app);
         await using (var db = new AppDbContext(dbOptions))
             await Scanner(db, stability, clock, options).ScanAsync(default);
 
@@ -125,7 +125,7 @@ public sealed class DuplicateSourceTests(PostgresFixture postgres)
         clock.Advance(StabilityDelay);
 
         var barrier = new ConcurrentJobInsertBarrier();
-        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(app.ConnectionString)
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(app.DatabaseSource)
             .AddInterceptors(barrier).Options;
         var firstOptions = ScannerOptions(app, firstRoot);
         var secondOptions = ScannerOptions(app, secondRoot);
@@ -136,7 +136,7 @@ public sealed class DuplicateSourceTests(PostgresFixture postgres)
 
         await Task.WhenAll(firstScanner.ScanAsync(default), secondScanner.ScanAsync(default));
 
-        await using var verify = new AppDbContext(DatabaseOptions(app.ConnectionString));
+        await using var verify = new AppDbContext(DatabaseOptions(app));
         var job = await verify.ImportJobs.SingleAsync();
         var duplicate = await verify.DuplicateSources.SingleAsync();
         Assert.Equal(job.FileHash, await new FileHashService().ComputeHashAsync(duplicate.FilePath));
@@ -153,8 +153,8 @@ public sealed class DuplicateSourceTests(PostgresFixture postgres)
         FileStableSeconds = (int)StabilityDelay.TotalSeconds
     };
 
-    private static DbContextOptions<AppDbContext> DatabaseOptions(string connection) =>
-        new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(connection).Options;
+    private static DbContextOptions<AppDbContext> DatabaseOptions(PaparrFactory app) =>
+        new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(app.DatabaseSource).Options;
 
     private static ImportScanner Scanner(AppDbContext db, FileStabilityTracker stability,
         TimeProvider clock, IngestionOptions options) => new(db, new FileHashService(), stability,

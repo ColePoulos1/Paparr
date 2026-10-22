@@ -45,6 +45,7 @@ export default function App({ signOut }: AppProps) {
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
+  const [undone, setUndone] = useState(false);
   const selectedFromResult = result.items.find((job) => job.id === selectedId);
   const selected =
     selectedFromResult ??
@@ -116,6 +117,7 @@ export default function App({ signOut }: AppProps) {
   }, [filter, refresh, reload, view]);
 
   function navigate(next: typeof filter) {
+    setUndone(false);
     setView("imports");
     setDraftJob(null);
     setSelectedId(null);
@@ -127,6 +129,8 @@ export default function App({ signOut }: AppProps) {
   }
 
   function changed(job: ImportJob) {
+    if (job.status === "AwaitingApproval" && (selected?.status === "Completed" || selected?.status === "Undoing"))
+      setUndone(true);
     setDraftJob((previous) => (previous?.id === job.id ? null : previous));
     setResult((previous) => ({
       ...previous,
@@ -250,7 +254,7 @@ export default function App({ signOut }: AppProps) {
                 <span>In progress</span>
                 <strong>
                   {summary
-                    ? summary.Pending + summary.Processing + summary.Publishing
+                    ? summary.Pending + summary.Processing + summary.Publishing + (summary.Undoing ?? 0)
                     : "—"}
                 </strong>
                 <small>From discovery to library</small>
@@ -296,6 +300,9 @@ export default function App({ signOut }: AppProps) {
                 {error} <button onClick={reload}>Try again</button>
               </div>
             )}
+            {undone && <div className="notice" role="status">The import returned to review. Your original file is retained.{" "}
+              <button className="text-button" onClick={() => navigate({ status: "AwaitingApproval", search: "", page: 1 })}>Review again</button>
+            </div>}
             {loading && result.items.length === 0 && !selected ? (
               <div className="empty" role="status">
                 Loading your imports…

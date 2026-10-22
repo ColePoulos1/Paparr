@@ -22,7 +22,9 @@ One Windows x64 run on October 21, 2026, with .NET 10.0.9 and eight logical proc
 | PostgreSQL container startup | 8,845 ms |
 | Host startup and migrations | 2,125 ms |
 
-All ten imports completed, all original and published bytes matched, and all ten audit results were verified. Raw local evidence is `.tools/ingestion-20261021.json`. These are observations from a small offline workload, not a sustained throughput or large-book benchmark. The harness calls the real services directly; it does not measure review time, HTTP overhead, provider latency, background scheduling, or network storage. Docker and filesystem cache state affect timings.
+All ten imports completed, all original files remained present, all published bytes matched their recorded hashes, and all ten audit results were verified. Raw local evidence is `.tools/ingestion-20261021.json`. These are observations from a small offline workload, not a sustained throughput or large-book benchmark. The harness calls the real services directly; it does not measure review time, HTTP overhead, provider latency, background scheduling, or network storage. Docker and filesystem cache state affect timings.
+
+The same harness with publication journaling enabled completed 100 fixtures totaling 87,776 bytes: discovery took 1,754 ms, metadata extraction 2,762 ms, explicit approval and publication 4,390 ms, and the integrity scan 740 ms. It retained every original file, verified all 100 published hashes, and processed all 100 audit results without faults. Raw evidence is `.tools/ingestion-undo-100.json`. This checks a larger queue of tiny files; it does not establish large-book throughput or directly rehash retained originals after completion.
 
 ## Discovery hashing microbenchmark
 

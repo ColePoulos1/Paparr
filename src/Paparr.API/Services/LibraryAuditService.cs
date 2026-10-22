@@ -13,6 +13,10 @@ public sealed class LibraryAuditService(AppDbContext db, IFileHashService hashes
 
     public async Task<LibraryAudit> QueueAsync(CancellationToken ct)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        await LibraryOperationAdmission.LockAsync(db, ct);
+        if (await db.ImportJobs.AnyAsync(j => j.Status == ImportStatus.Undoing, ct))
+            throw new ImportConflictException("Wait for pending import undo operations to finish before starting a library scan.");
         var active = await db.LibraryAudits.FirstOrDefaultAsync(a => a.IsActive, ct);
         if (active is not null) return active;
         var maximum = await db.Books.Select(b => (long?)b.Id).MaxAsync(ct) ?? 0;
@@ -26,10 +30,12 @@ public sealed class LibraryAuditService(AppDbContext db, IFileHashService hashes
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
+            await transaction.RollbackAsync(ct);
             db.ChangeTracker.Clear();
             return await db.LibraryAudits.FirstOrDefaultAsync(a => a.IsActive, ct)
                 ?? throw new ImportConflictException("The previous scan just finished. Start another scan to check again.");
         }
+        await transaction.CommitAsync(ct);
         return audit;
     }
 

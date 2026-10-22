@@ -200,6 +200,9 @@ namespace Paparr.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("CurrentUndoId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("DestinationPath")
                         .HasColumnType("text");
 
@@ -244,6 +247,58 @@ namespace Paparr.API.Migrations
                     b.HasIndex("Status", "CreatedAt");
 
                     b.ToTable("ImportJobs");
+                });
+
+            modelBuilder.Entity("Paparr.API.Domain.ImportUndo", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("BookId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DestinationPath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("ImportJobId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("RetryAfter")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SourcePath")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ImportJobId", "CreatedAt");
+
+                    b.HasIndex("Status", "RetryAfter");
+
+                    b.ToTable("ImportUndos");
                 });
 
             modelBuilder.Entity("Paparr.API.Domain.LibraryAudit", b =>
@@ -453,6 +508,15 @@ namespace Paparr.API.Migrations
                         .WithMany("Events")
                         .HasForeignKey("ImportJobId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Paparr.API.Domain.ImportUndo", b =>
+                {
+                    b.HasOne("Paparr.API.Domain.ImportJob", null)
+                        .WithMany()
+                        .HasForeignKey("ImportJobId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

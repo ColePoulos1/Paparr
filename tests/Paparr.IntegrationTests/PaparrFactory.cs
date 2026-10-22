@@ -14,12 +14,15 @@ namespace Paparr.IntegrationTests;
 
 public sealed class PaparrFactory(string connection) : WebApplicationFactory<Program>
 {
+    private readonly NpgsqlDataSource dataSource = NpgsqlDataSource.Create(connection);
+    private int resourcesDisposed;
     public string Root { get; } = Path.Combine(Path.GetTempPath(), "paparr-integration", Guid.NewGuid().ToString("N"));
     public string Ingest => Path.Combine(Root, "ingest");
     public string Library => Path.Combine(Root, "library");
     public CommitFailure Failure { get; } = new();
     public Dictionary<string, string?> SettingsOverrides { get; } = new();
     public string ConnectionString => connection;
+    public NpgsqlDataSource DatabaseSource => dataSource;
 
     public static async Task<PaparrFactory> CreateAsync(PostgresFixture postgres)
     {
@@ -54,7 +57,8 @@ public sealed class PaparrFactory(string connection) : WebApplicationFactory<Pro
             foreach (var (key, value) in SettingsOverrides) settings[key] = value;
             config.AddInMemoryCollection(settings);
         });
-        builder.ConfigureServices(services => services.AddDbContext<AppDbContext>(options => options.AddInterceptors(Failure)));
+        builder.ConfigureServices(services => services.AddDbContext<AppDbContext>(options =>
+            options.UseNpgsql(dataSource).AddInterceptors(Failure)));
     }
 
     public async Task<long> SeedAsync(ImportStatus status = ImportStatus.AwaitingApproval)
@@ -91,8 +95,28 @@ public sealed class PaparrFactory(string connection) : WebApplicationFactory<Pro
 
     protected override void Dispose(bool disposing)
     {
-        base.Dispose(disposing);
-        if (disposing && Directory.Exists(Root)) Directory.Delete(Root, true);
+        try { base.Dispose(disposing); }
+        finally
+        {
+            if (disposing && Interlocked.Exchange(ref resourcesDisposed, 1) == 0)
+            {
+                dataSource.Dispose();
+                if (Directory.Exists(Root)) Directory.Delete(Root, true);
+            }
+        }
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        try { await base.DisposeAsync(); }
+        finally
+        {
+            if (Interlocked.Exchange(ref resourcesDisposed, 1) == 0)
+            {
+                await dataSource.DisposeAsync();
+                if (Directory.Exists(Root)) Directory.Delete(Root, true);
+            }
+        }
     }
 }
 

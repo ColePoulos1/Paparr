@@ -5,10 +5,10 @@
 | Area | Implemented | Remaining |
 | --- | --- | --- |
 | Foundation | AGENTS.md, five project skills, SDK/runtime settings, verification script, CI, dependency updates, measured source coverage | Published CI history and coverage trends |
-| Safe imports | Durable queue, revision guards, publication fences, verified publication, collision protection, explicit retry, durable source cleanup and staging journal maintenance | Retained-source undo |
+| Safe imports | Durable queue, revision guards, publication fences, verified publication, collision protection, explicit retry, durable source cleanup, staging maintenance, retained-source undo | Larger recovery workloads |
 | Metadata | Real PDF/EPUB parsing, provenance, matching evidence, provider isolation, bounded cache, cooldowns, checked ISBNs and edition details | Calibration against labeled real-world decisions |
 | Review experience | Generated API types with drift checks, search, paging, manual edition choices, destination previews, timeline, draft preservation | More comparative review tools as library size grows |
-| Product features | Edition details in review, read-only resumable integrity scans, library health, duplicate-file history, verified downloads, synthetic offline demo | Safe undo and folder profiles |
+| Product features | Edition details in review, read-only resumable integrity scans, library health, duplicate-file history, verified downloads, retained-source undo, synthetic offline demo | Folder profiles |
 | Library integration | Portable standalone library structure and explicit verified Calibre handoff | Separate edition/file model and synchronization design |
 | Operations | Same-origin proxy, non-root containers, persistent storage, owner sign-in, CSRF/host/origin checks, worker and staging diagnostics, tested restoration, proxy trust regression and local TLS checks | Public TLS provisioning |
 | Release | Screenshots, architecture notes, repeatable deployment checks, reproducible source packaging, hashing and offline ingestion harnesses | Published CI history, full upgrade matrix, sustained/larger-book throughput measurements |
@@ -20,6 +20,7 @@
 - An existing destination with different bytes is preserved.
 - Source cleanup survives interruption, retains changed originals, and never fails a completed import.
 - Stale publishers cannot alter a recovered import. Maintenance cleans only confirmed journaled temporary files, preserves current attempts, and retains unconfirmed or untracked files.
+- Undo preserves the recorded original, returns the import to review, and survives cancellation or a failed completion commit. Old operation IDs cannot undo reapproved books; cleanup and integrity scans coordinate through PostgreSQL locks.
 - PostgreSQL tests run real migrations, constraints, and concurrent requests.
 - Provider errors preserve local review, and rate-limited providers do not block each other.
 - Refreshes preserve unsaved metadata drafts and ignore stale responses.
@@ -34,5 +35,5 @@ The original builds passed, but there were no automated tests. PDF extraction us
 
 ## Next implementation priorities
 
-1. Retained-source undo with previews and filesystem/database recovery tests.
-2. Folder profiles, edition/file modeling, and larger ingestion workloads.
+1. Folder profiles and separate edition/file modeling.
+2. Larger ingestion workloads, sustained throughput measurements, and published CI history.

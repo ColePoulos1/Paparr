@@ -16,7 +16,7 @@ public sealed class ImportTests(PostgresFixture postgres)
     public async Task Upgrading_the_original_schema_preserves_existing_jobs()
     {
         using var app = await PaparrFactory.CreateAsync(postgres);
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(app.ConnectionString).Options;
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(app.DatabaseSource).Options;
         await using (var db = new AppDbContext(options))
         {
             var migrator = Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>(db);

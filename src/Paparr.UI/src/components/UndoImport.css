@@ -1,0 +1,43 @@
+.undo-import {
+  margin: 1.5rem 0;
+  border-top: 1px solid var(--line);
+  padding-top: 1.25rem;
+}
+.undo-import h3 {
+  margin: 0 0 0.75rem;
+}
+.undo-import p {
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.undo-import dl {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  background: #faf8f2;
+  border-radius: 8px;
+}
+.undo-import dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+.undo-import dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.undo-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.undo-confirm {
+  background: #8b422e;
+  color: white;
+  border-color: #8b422e;
+}
+.undo-confirm:hover:not(:disabled) {
+  background: #723523;
+}

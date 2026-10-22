@@ -16,7 +16,7 @@ public sealed record ImportJobDto(long Id, string FileName, string Status, DateT
             EditionDto.From(b.Isbn13, b.IsbnStatus, b.Publisher, b.PublicationYear, b.Language)) : null,
         job.Events.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id).Select(e => new ImportEventDto(e.Message, e.CreatedAt)).ToList(),
         new SourceCleanupDto(job.CleanupStatus.ToString(), job.CleanupAttemptCount, job.CleanupError,
-            cleanupEnabled && job.CleanupStatus == SourceCleanupStatus.Retained));
+            cleanupEnabled && job.Status == ImportStatus.Completed && job.CleanupStatus == SourceCleanupStatus.Retained));
 }
 
 public sealed record SourceCleanupDto(string Status, int AttemptCount, string? Error, bool CanRetry);

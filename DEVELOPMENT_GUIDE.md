@@ -35,6 +35,8 @@ npm run test:e2e
 
 Browser tests exercise the UI against controlled HTTP responses. PostgreSQL integration tests separately exercise the real API, database, worker, and filesystem. Run `pwsh scripts/Test-Deployment.ps1` for the packaged application and backup restoration. It uses synthetic files, a unique Compose project, and port 5188 by default. `-KeepRunning` leaves its demo available; otherwise it removes its own containers, images, and database volume while retaining the local evidence files under `.tools`.
 
+Add `-Coverage` to `scripts/verify.ps1` to collect both backend suites and summarize their combined source line coverage. Each run writes a fresh report directory under `.tools`, preventing stale reports from affecting the result. This option requires integration checks.
+
 Add `-Browser` to exercise the packaged UI against its real API on desktop and mobile. This requires the UI's installed dependencies and Playwright Chromium. CI runs this mode and saves screenshots on completion or failure.
 
 `pwsh scripts/Test-ReleaseBundle.ps1` checks source packaging with a disposable Git repository, including dirty-tree rejection, deterministic archives, hashes, and excluded local data. After committing a verified checkpoint, create a source bundle with `pwsh scripts/New-ReleaseBundle.ps1 -Destination .tools/release-checkpoint`. Create `.tools` first if it does not exist. The destination must be new; the script packages the exact clean `HEAD` and refuses tracked environment files, runtime data, links, and submodules. Its manifest records the commit and archive hash. It produces source for a local build, not signed binaries or published images.

@@ -70,6 +70,7 @@ builder.Services.AddScoped<ILibraryPublisher, LibraryPublisher>();
 builder.Services.AddScoped<ImportScanner>();
 builder.Services.AddScoped<SourceCleanupService>();
 builder.Services.AddScoped<StagingService>();
+builder.Services.AddScoped<ImportUndoService>();
 builder.Services.AddScoped<LibraryAuditService>();
 builder.Services.AddScoped<LibraryDownloadService>();
 builder.Services.AddScoped<CalibreExportService>();

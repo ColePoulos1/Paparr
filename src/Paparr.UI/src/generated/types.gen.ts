@@ -57,7 +57,7 @@ export type ImportEventDto = {
 export type ImportJobDto = {
     id: number;
     fileName: string;
-    status: 'Pending' | 'Processing' | 'AwaitingApproval' | 'Publishing' | 'Completed' | 'Failed';
+    status: 'Pending' | 'Processing' | 'AwaitingApproval' | 'Publishing' | 'Completed' | 'Failed' | 'Undoing';
     createdAt: string;
     updatedAt: string;
     revision: string;
@@ -82,7 +82,7 @@ export type ImportPreviewDto = {
     sourceRetained: boolean;
 };
 
-export type ImportStatus = 0 | 1 | 2 | 3 | 4 | 5;
+export type ImportStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type IntegrityStatus = 0 | 1 | 2 | 3 | 4;
 
@@ -140,6 +140,10 @@ export type MetadataCandidateDto = {
     edition: EditionDto | null;
 };
 
+export type RetryUndoRequest = {
+    operationId: string;
+};
+
 export type SessionDto = {
     enabled: boolean;
     authenticated: boolean;
@@ -158,6 +162,23 @@ export type StagingStatusDto = {
     pendingMaintenance: number;
     retained: number;
     settled: number;
+};
+
+export type StartUndoRequest = {
+    revision: string;
+    operationId: string;
+};
+
+export type UndoPreviewDto = {
+    revision: string;
+    canUndo: boolean;
+    reason: string | null;
+    sourceRelativePath: string | null;
+    libraryRelativePath: string | null;
+    operationId: string | null;
+    operationStatus: string | null;
+    error: string | null;
+    canRetry: boolean;
 };
 
 export type WorkerDiagnosticsSnapshot = {
@@ -429,6 +450,60 @@ export type PostApiImportsByIdRetryResponses = {
 };
 
 export type PostApiImportsByIdRetryResponse = PostApiImportsByIdRetryResponses[keyof PostApiImportsByIdRetryResponses];
+
+export type GetApiImportsByIdUndoPreviewData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/imports/{id}/undo-preview';
+};
+
+export type GetApiImportsByIdUndoPreviewResponses = {
+    /**
+     * OK
+     */
+    200: UndoPreviewDto;
+};
+
+export type GetApiImportsByIdUndoPreviewResponse = GetApiImportsByIdUndoPreviewResponses[keyof GetApiImportsByIdUndoPreviewResponses];
+
+export type PostApiImportsByIdUndoData = {
+    body?: StartUndoRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/imports/{id}/undo';
+};
+
+export type PostApiImportsByIdUndoResponses = {
+    /**
+     * OK
+     */
+    200: ImportJobDto;
+};
+
+export type PostApiImportsByIdUndoResponse = PostApiImportsByIdUndoResponses[keyof PostApiImportsByIdUndoResponses];
+
+export type PostApiImportsByIdUndoRetryData = {
+    body?: RetryUndoRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/imports/{id}/undo/retry';
+};
+
+export type PostApiImportsByIdUndoRetryResponses = {
+    /**
+     * OK
+     */
+    200: ImportJobDto;
+};
+
+export type PostApiImportsByIdUndoRetryResponse = PostApiImportsByIdUndoRetryResponses[keyof PostApiImportsByIdUndoRetryResponses];
 
 export type GetApiLibraryByIdFileData = {
     body?: never;

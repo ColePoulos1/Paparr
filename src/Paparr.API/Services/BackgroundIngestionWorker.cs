@@ -37,6 +37,10 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
 
     private async Task RunQueuedWorkAsync(CancellationToken ct)
     {
+        using (var undoScope = scopes.CreateScope())
+        {
+            await undoScope.ServiceProvider.GetRequiredService<ImportUndoService>().RunBatchAsync(ct);
+        }
         // Queue progress must not depend on the watch directory being available.
         using (var scope = scopes.CreateScope())
         {
