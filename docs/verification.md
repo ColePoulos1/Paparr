@@ -1,5 +1,20 @@
 # Verification record
 
+## October 22, 2026 hosted verification follow-up
+
+The existing [GitHub Actions run 39877408260](https://github.com/ColePoulos1/Paparr/actions/runs/39877408260) checked commit `a79eaaafb4a7a4a2abb45e7ba7365607e8e3edc0` on `main`. The backend, Windows unit, and frontend jobs passed. The proxy and deployment jobs failed, with public annotations reporting exit code 1. Their authenticated logs and artifact contents have not yet been inspected; no successful hosted release verification is claimed.
+
+Local checks on the same source commit used temporary files and disposable PostgreSQL/Compose resources:
+
+- `dotnet tool restore` succeeded; the release build had zero warnings and errors, all 147 backend unit and 97 PostgreSQL integration tests passed, and backend line coverage remained 2,249/2,401 (93.7%).
+- `scripts/verify.ps1 -Coverage` completed successfully: 56 React component tests and 12 desktop/mobile Chromium cases also passed, along with frontend lint, production build, generated API contract checks, and coverage/release-bundle fixtures (312 tests total).
+- `scripts/Test-ProxyTrust.ps1` passed all six spoofing, trusted-peer, and invalid-configuration cases. `scripts/Test-TlsDeployment.ps1` passed all nine checks; evidence is `.tools/paparr-tls-515066664b20/results.json`.
+- `scripts/Test-Deployment.ps1 -Browser -Calibre` passed all fourteen checks, including backup/restore, browser undo/reapproval, and two real isolated Calibre imports. Evidence is `.tools/paparr-smoke-8bc5d5e7df2b/results.json` and its `browser` directory. Both deployment scripts cleaned up their Docker resources.
+- The transitive NuGet audit and clean Docker frontend dependency installation reported no known vulnerabilities.
+- Source packaging succeeded into `.tools/release-hosted-a79eaaa`, with its manifest identifying the tested commit and archive SHA-256. This archive has not been published.
+
+Logs are `.tools/verify-hosted-preflight.log`, `.tools/deployment-hosted-preflight.log`, `.tools/proxy-hosted-preflight.log`, `.tools/tls-hosted-preflight.log`, and `.tools/dependency-hosted-preflight.log`. Local Windows passes do not establish the cause or resolution of the Linux hosted failures.
+
 ## October 22, 2026 release checkpoint
 
 Executed locally on Windows with .NET SDK 10.0.301/runtime 10.0.9, Node 24, Docker Desktop, and PostgreSQL 18.6 containers. Fixtures and databases were disposable; no personal library was used.
