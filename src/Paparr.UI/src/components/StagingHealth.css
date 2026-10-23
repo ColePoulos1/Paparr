@@ -1,0 +1,28 @@
+.staging-health {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: white;
+}
+.staging-health h2 {
+  font-size: 21px;
+}
+.worker-health .staging-health dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.worker-health .staging-health dl > div {
+  display: block;
+}
+.worker-health .staging-health dd {
+  margin-top: 6px;
+  font-size: 1.25rem;
+}
+.staging-health .worker-footnote {
+  margin-bottom: 0;
+}
+@media (max-width: 400px) {
+  .worker-health .staging-health dl {
+    grid-template-columns: 1fr;
+  }
+}

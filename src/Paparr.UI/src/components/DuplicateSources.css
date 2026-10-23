@@ -1,0 +1,36 @@
+.duplicate-sources {
+  margin-top: 1.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.duplicate-sources ul {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.duplicate-sources li {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.duplicate-sources code,
+.duplicate-sources time {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.duplicate-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}

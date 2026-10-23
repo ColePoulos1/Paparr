@@ -1,0 +1,107 @@
+name: Verify
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  windows-unit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet test tests/Paparr.UnitTests --configuration Release
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet build Paparr.slnx --configuration Release
+      - run: dotnet test Paparr.slnx --configuration Release --no-build --logger trx --collect:"XPlat Code Coverage"
+      - name: Summarize backend coverage
+        shell: pwsh
+        run: |
+          ./scripts/Test-Coverage.ps1
+          ./scripts/Test-ReleaseBundle.ps1
+          ./scripts/Measure-Coverage.ps1
+          Get-Content .tools/backend-coverage.md -Raw | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-results
+          path: |
+            **/TestResults/**
+            .tools/backend-coverage.md
+          include-hidden-files: true
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/Paparr.UI
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: src/Paparr.UI/package-lock.json
+      - run: npm ci
+      - run: npm run api:check
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-results
+          path: src/Paparr.UI/playwright-report/
+  proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reject spoofed proxy headers and verify local TLS
+        shell: pwsh
+        run: |
+          ./scripts/Test-ProxyTrust.ps1
+          ./scripts/Test-TlsDeployment.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tls-results
+          path: .tools/paparr-tls-*/results.json
+          include-hidden-files: true
+  deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: src/Paparr.UI/package-lock.json
+      - run: npm ci
+        working-directory: src/Paparr.UI
+      - run: npx playwright install --with-deps chromium
+        working-directory: src/Paparr.UI
+      - name: Install, import, recreate, and restore
+        shell: pwsh
+        run: ./scripts/Test-Deployment.ps1 -Browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deployment-results
+          path: |
+            .tools/paparr-smoke-*/results.json
+            .tools/paparr-smoke-*/browser/
+          include-hidden-files: true

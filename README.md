@@ -1,58 +1,70 @@
-﻿# Paparr - Self-Hosted Ebook Ingestion Service
+# Paparr
 
-Paparr is a dockerized ebook ingestion service inspired by Radarr. It automates the process of importing ebooks from various sources, extracting/enriching metadata, and organizing the files into a standard library. It is meant to be hosted on a homelab for personal use. Paparr is most useful running in conjunction with Calibre or [Calibre Web Automated](https://github.com/crocodilestick/Calibre-Web-Automated).
+A self-hosted ebook intake workbench. Drop EPUB or PDF files into a watch folder, compare metadata choices, preview their destination, and approve them into an organized library.
 
-## Features
+Paparr keeps an import history and verifies file content before publication. Originals are retained by default. Interrupted publication can resume from persisted job state.
 
-- **Automated File Ingestion**: Polls a watch directory and processes new EPUB and PDF files
-- **Smart Metadata Extraction**: Extracts from embedded metadata, filename parsing, Open Library and Google Books APIs
-- **Manual Review Interface**: Clean React UI for approving/selecting metadata candidates when the confidence threshold for automatically applying metadata was not reached
-- **Calibre-Compatible Structure**: Organizes books in folder structure compatible with existing Calibre libraries
-- **Docker Support**: Complete docker-compose setup for one-command deployment
+![Paparr review desk](docs/images/review-desktop.png)
 
-## Tech Stack
-- **Backend**: ASP.NET Core 10 Web API
-- **Database**: PostgreSQL 18.1
-- **Frontend**: React 18
+## What works
 
-## Quick Start with Docker
+- Stable-file discovery and a durable PostgreSQL import queue.
+- Duplicate-file history that explains skipped copies while leaving their files untouched.
+- EPUB and PDF metadata extraction, with filename fallback.
+- Open Library and Google Books candidates with source labels, matching evidence, caching, and rate-limit handling.
+- Edition details with ISBN checksum checks, publisher, publication year, and language.
+- Folder profiles that route watch subfolders into library collections and select a filename fallback order.
+- A responsive review workspace with search, pagination, manual metadata, destination previews, and event history.
+- Collision-safe publication, content verification, bounded attempts, retry, and recovery of interrupted jobs.
+- Journaled temporary-file maintenance that preserves active attempts and files without confirmed ownership.
+- Verified undo for imports whose original remains intact, with previews and recovery after interruption.
+- Resumable integrity scans that identify missing, changed, and unreadable library files without modifying them.
+- Worker status with stage progress, sanitized failures, and delay indicators.
+- Owner-only library downloads with content verification and byte-range support.
+- Calibre handoff archives with a verified book copy and approved metadata sidecar.
+- Same-origin Docker deployment with persistent PostgreSQL storage.
+- Owner sign-in with revocable sessions, CSRF protection, and sign-in rate limits.
 
-`
-cd Paparr
-`  
-`
-docker-compose up --build
-`
+All imports currently require review. Match scores describe title/author similarity; they are not probabilities. Paparr organizes files into its own library directory. Calibre exports provide an explicit handoff; Paparr does not write to a Calibre database.
 
-### Access:
-- **UI**: http://localhost:5173
-- **API**: http://localhost:5000/api
-- **Swagger**: http://localhost:5000/swagger
+## Run
 
-## Environment Variables
+Requires Docker Compose. Copy `.env.example` to `.env`, set `POSTGRES_PASSWORD`, and create the ingest and library directories. Build the API and generate an owner password hash:
 
-`
-{
-  "IngestPath": "/ingest",
-  "LibraryPath": "/library"
-}
-`
+```sh
+docker compose build
+docker compose run --rm --no-deps paparr-api --hash-password
+```
 
-## Metadata Extraction Priority
+Copy the resulting hash into `PAPARR_PASSWORD_HASH` in `.env`, then start Paparr:
 
-1. **Embedded Metadata** (EPUB/PDF metadata)
-2. **Filename Parsing** (format: "Title - Author.ext")
-3. **Open Library API** (https://openlibrary.org)
-4. **Google Books API** (https://www.googleapis.com/books/v1/volumes)
+```sh
+docker compose up --build -d --wait
+```
 
-## File Organization
+Open [localhost:5173](http://localhost:5173) and sign in. Add ebooks to the configured ingest folder. The default port binds to loopback; remote deployments also need HTTPS.
 
-### Books are organized in Calibre-compatible structure:  
-`/library/Author Name/Book Title/Book Title - Author Name.epub` 
+See the [deployment guide](DEPLOYMENT_GUIDE.md) for configuration, permissions, and synthetic demo files.
 
-## Screenshots
+## Development
 
-![Import Queue filtered on awaiting approval](assets/screenshots/importqueueapp.png)
-![Import queue filtered on completed](assets/screenshots/importqueuecomp.png)
-![Import history](assets/screenshots/importhistory.png)
-![Metadata as seen in Calibre](assets/screenshots/calibremeta.png)
+ASP.NET Core 10, PostgreSQL 18, React, and TypeScript.
+
+```sh
+dotnet tool restore
+cd src/Paparr.UI
+npm ci
+npx playwright install chromium
+cd ../..
+pwsh scripts/verify.ps1
+```
+
+The suite includes unit tests with real ebook fixtures, PostgreSQL integration tests, React component tests, and desktop/mobile browser journeys. Integration tests use disposable infrastructure.
+
+`pwsh scripts/Test-Deployment.ps1 -Browser` tests installation, publication, container recreation, integrity checks, backup restoration, and signed-in browser journeys in its own disposable Compose project. See the [verification record](docs/verification.md).
+
+Read the [development guide](DEVELOPMENT_GUIDE.md), [architecture](docs/architecture.md), and [overhaul roadmap](docs/overhaul.md).
+
+## Project status
+
+Paparr 0.2.0 is the first release checkpoint of this overhaul. Separate edition/file modeling remains planned. See the [changelog](CHANGELOG.md) for the release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [handoff](docs/handoff.md) for the next work.

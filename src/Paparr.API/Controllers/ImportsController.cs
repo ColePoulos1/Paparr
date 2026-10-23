@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Paparr.API.Data;
 using Paparr.API.Domain;
 using Paparr.API.Models;
@@ -8,160 +9,167 @@ using Paparr.API.Services;
 namespace Paparr.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
-public class ImportsController : ControllerBase
+[Route("api/imports")]
+public sealed class ImportsController(AppDbContext db, IEbookIngestionService ingestion,
+    IOptions<IngestionOptions> options, TimeProvider clock, SourceCleanupService cleanup) : ControllerBase
 {
-    private readonly AppDbContext _db;
-    private readonly IEbookIngestionService _ingestionService;
-    private readonly ILogger<ImportsController> _logger;
+    private ImportJobDto ToDto(ImportJob job) => ImportJobDto.From(job, options.Value.DeleteSourceAfterImport);
+    private IQueryable<ImportJob> Details => db.ImportJobs.Include(j => j.Candidates)
+        .Include(j => j.AcceptedBook).Include(j => j.Events).AsSplitQuery();
 
-    public ImportsController(
-        AppDbContext db,
-        IEbookIngestionService ingestionService,
-        ILogger<ImportsController> logger)
-    {
-        _db = db;
-        _ingestionService = ingestionService;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Get all import jobs with their candidates.
-    /// </summary>
     [HttpGet]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<ActionResult<List<ImportJobDto>>> GetImports()
+    public async Task<ActionResult<PagedResult<ImportJobDto>>> GetImports(CancellationToken ct,
+        ImportStatus? status = null, string? search = null, int page = 1, int pageSize = 25)
     {
-        var jobs = await _db.ImportJobs
-            .AsNoTracking()
-            .Include(j => j.Candidates)
-            .Include(j => j.AcceptedBook)
-            .OrderByDescending(j => j.CreatedAt)
-            .ToListAsync();
-
-        return Ok(jobs.Select(MapToDto).ToList());
+        if (page < 1 || page > 100000 || pageSize is < 1 or > 100 || search?.Length > 200 ||
+            (status.HasValue && !Enum.IsDefined(status.Value)))
+            return ValidationProblem("Use a valid page, page size from 1 to 100, and search of at most 200 characters.");
+        var query = Details.AsNoTracking();
+        if (status.HasValue) query = query.Where(j => j.Status == status.Value);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(j => j.FilePath.ToLower().Contains(term) ||
+                j.Candidates.Any(c => c.Title.ToLower().Contains(term) || c.Author.ToLower().Contains(term)));
+        }
+        var total = await query.CountAsync(ct);
+        var jobs = await query.OrderByDescending(j => j.CreatedAt).ThenByDescending(j => j.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        return Ok(new PagedResult<ImportJobDto>(jobs.Select(ToDto).ToList(), total, page, pageSize));
     }
 
-    /// <summary>
-    /// Get a specific import job with its candidates.
-    /// </summary>
+    [HttpGet("summary")]
+    public async Task<ActionResult<Dictionary<string, int>>> GetSummary(CancellationToken ct)
+    {
+        var counts = await db.ImportJobs.GroupBy(j => j.Status).Select(g => new { Status = g.Key, Count = g.Count() }).ToListAsync(ct);
+        return Ok(Enum.GetValues<ImportStatus>().ToDictionary(s => s.ToString(), s => counts.FirstOrDefault(c => c.Status == s)?.Count ?? 0));
+    }
+
     [HttpGet("{id:long}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ImportJobDto>> GetImport(long id)
+    public async Task<ActionResult<ImportJobDto>> GetImport(long id, CancellationToken ct)
     {
-        var job = await _db.ImportJobs
-            .AsNoTracking()
-            .Include(j => j.Candidates)
-            .Include(j => j.AcceptedBook)
-            .FirstOrDefaultAsync(j => j.Id == id);
-
-        if (job == null)
-            return NotFound();
-
-        return Ok(MapToDto(job));
+        var job = await Details.AsNoTracking().FirstOrDefaultAsync(j => j.Id == id, ct);
+        return job == null ? NotFound() : Ok(ToDto(job));
     }
 
-    /// <summary>
-    /// Accept a metadata candidate for an import job.
-    /// Creates the Book record and moves file to library.
-    /// </summary>
-    [HttpPost("{id:long}/accept/{candidateId:long}")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<ImportJobDto>> AcceptCandidate(long id, long candidateId)
+    [HttpGet("{id:long}/duplicates")]
+    public async Task<ActionResult<PagedResult<DuplicateSourceDto>>> GetDuplicateSources(long id,
+        CancellationToken ct, int page = 1, int pageSize = 25)
     {
-        var job = await _db.ImportJobs
-            .Include(j => j.Candidates)
-            .Include(j => j.AcceptedBook)
-            .FirstOrDefaultAsync(j => j.Id == id);
+        if (page < 1 || page > 100000 || pageSize is < 1 or > 100)
+            return ValidationProblem("Use a valid page and page size from 1 to 100.");
+        if (!await db.ImportJobs.AnyAsync(j => j.Id == id, ct)) return NotFound();
 
-        if (job == null)
-            return NotFound("Import job not found");
+        var query = db.DuplicateSources.AsNoTracking().Where(d => d.ImportJobId == id);
+        var total = await query.CountAsync(ct);
+        var sources = await query.OrderBy(d => d.DiscoveredAt).ThenBy(d => d.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
+        var items = sources.Select(source => new DuplicateSourceDto(source.Id, SafeFileName(source.FilePath),
+            GetRelativeSourcePath(source.FilePath), source.DiscoveredAt)).ToList();
+        return Ok(new PagedResult<DuplicateSourceDto>(items, total, page, pageSize));
+    }
 
-        var candidate = job.Candidates.FirstOrDefault(c => c.Id == candidateId);
-        if (candidate == null)
-            return BadRequest("Candidate not found for this job");
-
+    private string? GetRelativeSourcePath(string path)
+    {
         try
         {
-            await _ingestionService.AcceptCandidateAsync(job, candidate);
-            
-            // Reload to get updated state
-            await _db.Entry(job).ReloadAsync();
-            await _db.Entry(job).Collection(j => j.Candidates).LoadAsync();
-            await _db.Entry(job).Reference(j => j.AcceptedBook).LoadAsync();
-
-            return Ok(MapToDto(job));
+            var root = Path.GetFullPath(options.Value.IngestPath);
+            if (!LibraryPaths.IsWithin(root, path)) return null;
+            return Path.GetRelativePath(root, Path.GetFullPath(path)).Replace('\\', '/');
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException)
         {
-            _logger.LogError(ex, "Error accepting candidate {CandidateId} for job {JobId}", candidateId, id);
-            return BadRequest("Error accepting candidate");
+            return null;
         }
     }
 
-    /// <summary>
-    /// Retry a failed import job.
-    /// Resets job to Pending status for reprocessing.
-    /// </summary>
+    private static string SafeFileName(string path) => path
+        .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, '/', '\\'], StringSplitOptions.RemoveEmptyEntries)
+        .LastOrDefault() ?? "";
+
+    [HttpGet("{id:long}/preview/{candidateId:long}")]
+    public async Task<ActionResult<ImportPreviewDto>> Preview(long id, long candidateId, CancellationToken ct)
+    {
+        var job = await Details.AsNoTracking().FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (job == null) return NotFound();
+        var candidate = job.Candidates.FirstOrDefault(c => c.Id == candidateId);
+        if (candidate == null) return NotFound();
+        var destination = LibraryPaths.ImportDestination(options.Value.LibraryPath, job, candidate);
+        return Ok(new ImportPreviewDto(Path.GetRelativePath(options.Value.LibraryPath, destination).Replace('\\', '/'),
+            System.IO.File.Exists(destination), !options.Value.DeleteSourceAfterImport));
+    }
+
+    [HttpPost("{id:long}/accept/{candidateId:long}")]
+    public async Task<ActionResult<ImportJobDto>> AcceptCandidate(long id, long candidateId, CancellationToken ct)
+    {
+        var job = await Details.FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (job == null) return NotFound();
+        var candidate = job.Candidates.FirstOrDefault(c => c.Id == candidateId);
+        if (candidate == null) return NotFound();
+        await ingestion.AcceptCandidateAsync(job, candidate, ct);
+        return Ok(ToDto(await Details.AsNoTracking().SingleAsync(j => j.Id == id, ct)));
+    }
+
+    [HttpPost("{id:long}/metadata")]
+    public async Task<ActionResult<ImportJobDto>> EditMetadata(long id, EditMetadataRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Author))
+            return ValidationProblem("Title and author cannot be blank.");
+        if (request.Title.Contains('\0') || request.Author.Contains('\0') || request.Edition?.Publisher?.Contains('\0') == true)
+            return ValidationProblem("Title, author, and publisher cannot contain null characters.");
+        if (request.Edition?.PublicationYear is < 1000 or > 9999)
+            return ValidationProblem("Publication year must be between 1000 and 9999.");
+        var job = await Details.FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (job == null) return NotFound();
+        if (job.Status != ImportStatus.AwaitingApproval) throw new ImportConflictException("Metadata can only be edited while awaiting review.");
+        var now = clock.GetUtcNow().UtcDateTime;
+        var edition = request.Edition is null ? null : EditionMetadataNormalizer.CreateManual(request.Edition.Isbn,
+            request.Edition.Publisher, request.Edition.PublicationYear, request.Edition.Language);
+        job.Candidates.Add(new MetadataCandidate
+        {
+            Title = request.Title.Trim(),
+            Author = request.Author.Trim(),
+            Source = "manual",
+            ExternalId = "",
+            ConfidenceScore = 100,
+            Evidence = "Entered during manual review.",
+            Isbn13 = edition?.Isbn13,
+            IsbnStatus = edition?.IsbnStatus ?? EditionIsbnStatus.NotProvided,
+            Publisher = edition?.Publisher,
+            PublicationYear = edition?.PublicationYear,
+            Language = edition?.Language,
+            CreatedAt = now
+        });
+        job.UpdatedAt = now;
+        job.Events.Add(new ImportEvent { Message = "Added a manual metadata choice.", CreatedAt = now });
+        await db.SaveChangesAsync(ct);
+        return Ok(ToDto(job));
+    }
+
+    [HttpPost("{id:long}/cleanup/retry")]
+    public async Task<ActionResult<ImportJobDto>> RetryCleanup(long id, CancellationToken ct)
+    {
+        var job = await Details.FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (job == null) return NotFound();
+        await cleanup.QueueRetryAsync(job, ct);
+        return Ok(ToDto(job));
+    }
+
     [HttpPost("{id:long}/retry")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<ImportJobDto>> RetryImport(long id)
+    public async Task<ActionResult<ImportJobDto>> RetryImport(long id, CancellationToken ct)
     {
-        var job = await _db.ImportJobs
-            .Include(j => j.Candidates)
-            .Include(j => j.AcceptedBook)
-            .FirstOrDefaultAsync(j => j.Id == id);
-
-        if (job == null)
-            return NotFound();
-
-        if (job.Status != ImportStatus.Failed)
-            return BadRequest("Only failed jobs can be retried");
-
-        // Clear previous candidates
-        _db.MetadataCandidates.RemoveRange(job.Candidates);
-
+        var job = await Details.FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (job == null) return NotFound();
+        if (job.Status == ImportStatus.Pending) return Ok(ToDto(job));
+        if (job.Status != ImportStatus.Failed) throw new ImportConflictException("Only failed imports can be retried.");
+        if (job.AttemptCount >= options.Value.MaxAttempts)
+            throw new ImportConflictException("The attempt limit was reached. Check the file and increase MaxAttempts to retry.");
         job.Status = ImportStatus.Pending;
-        job.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-
-        return Ok(MapToDto(job));
-    }
-
-    private ImportJobDto MapToDto(ImportJob job)
-    {
-        return new ImportJobDto
-        {
-            Id = job.Id,
-            FilePath = job.FilePath,
-            Status = job.Status.ToString(),
-            CreatedAt = job.CreatedAt,
-            UpdatedAt = job.UpdatedAt,
-            Candidates = job.Candidates
-                .OrderByDescending(c => c.ConfidenceScore)
-                .Select(c => new MetadataCandidateDto
-                {
-                    Id = c.Id,
-                    Title = c.Title,
-                    Author = c.Author,
-                    Source = c.Source,
-                    ExternalId = c.ExternalId,
-                    ConfidenceScore = c.ConfidenceScore
-                })
-                .ToList(),
-            AcceptedBook = job.AcceptedBook != null ? new BookDto
-            {
-                Id = job.AcceptedBook.Id,
-                Title = job.AcceptedBook.Title,
-                Author = job.AcceptedBook.Author,
-                Source = job.AcceptedBook.Source,
-                ExternalId = job.AcceptedBook.ExternalId,
-                ImportedAt = job.AcceptedBook.ImportedAt
-            } : null
-        };
+        job.LastError = null;
+        job.LeaseExpiresAt = null;
+        job.UpdatedAt = clock.GetUtcNow().UtcDateTime;
+        job.Events.Add(new ImportEvent { Message = "Retry queued.", CreatedAt = job.UpdatedAt });
+        await db.SaveChangesAsync(ct);
+        return Ok(ToDto(job));
     }
 }

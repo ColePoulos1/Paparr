@@ -2,14 +2,12 @@ using System.Security.Cryptography;
 
 namespace Paparr.API.Services;
 
-public class FileHashService : IFileHashService
+public sealed class FileHashService : IFileHashService
 {
-    public async Task<string> ComputeHashAsync(string filePath)
+    public async Task<string> ComputeHashAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        using var sha256 = SHA256.Create();
-        using var stream = File.OpenRead(filePath);
-        
-        var hash = await Task.Run(() => sha256.ComputeHash(stream));
-        return Convert.ToHexString(hash);
+        await using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            81920, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        return Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken));
     }
 }

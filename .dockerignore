@@ -1,0 +1,16 @@
+.git
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/TestResults
+**/test-results
+**/playwright-report
+**/coverage
+.vs
+.vscode
+.env
+.tools
+.paparr
+ingest
+library

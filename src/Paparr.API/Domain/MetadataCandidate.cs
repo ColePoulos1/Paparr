@@ -1,20 +1,21 @@
 namespace Paparr.API.Domain;
 
-/// <summary>
-/// Represents a metadata candidate for an import job.
-/// Can come from file metadata, filename parsing, or API queries.
-/// </summary>
 public class MetadataCandidate
 {
     public long Id { get; set; }
     public required string Title { get; set; }
     public required string Author { get; set; }
-    public required string Source { get; set; } // e.g., "embedded", "filename", "openlibrary", "googlebooks"
+    public required string Source { get; set; }
     public required string ExternalId { get; set; }
-    public decimal ConfidenceScore { get; set; } // 0-100, higher is better
+    public decimal ConfidenceScore { get; set; }
+    public string Evidence { get; set; } = "";
+    public string? Isbn13 { get; set; }
+    public EditionIsbnStatus IsbnStatus { get; set; } = EditionIsbnStatus.NotProvided;
+    public string? Publisher { get; set; }
+    public int? PublicationYear { get; set; }
+    public string? Language { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    // Foreign key
     public long ImportJobId { get; set; }
     public ImportJob? ImportJob { get; set; }
 }

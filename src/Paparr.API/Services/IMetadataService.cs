@@ -1,20 +1,14 @@
+using Paparr.API.Domain;
+
 namespace Paparr.API.Services;
 
 public interface IMetadataService
 {
-    /// <summary>
-    /// Extracts metadata from an EPUB file.
-    /// </summary>
-    Task<(string Title, string Author)?> ExtractEpubMetadataAsync(string filePath);
-
-    /// <summary>
-    /// Extracts metadata from a PDF file.
-    /// </summary>
-    Task<(string Title, string Author)?> ExtractPdfMetadataAsync(string filePath);
-
-    /// <summary>
-    /// Parses filename to extract title and author.
-    /// Assumes format: "Title - Author.ext"
-    /// </summary>
+    Task<EmbeddedEpubMetadata?> ExtractEpubMetadataAsync(string filePath, CancellationToken cancellationToken = default);
+    Task<(string Title, string Author)?> ExtractPdfMetadataAsync(string filePath, CancellationToken cancellationToken = default);
     (string Title, string Author)? ParseFilename(string filename);
+    (string Title, string Author)? ParseFilename(string filename, FilenameOrder order);
 }
+
+public sealed record EmbeddedEpubMetadata(string Title, string Author, IReadOnlyList<string> Isbns, string? Publisher,
+    string? PublicationDate, string? Language);

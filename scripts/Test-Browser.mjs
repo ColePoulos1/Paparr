@@ -1,0 +1,148 @@
+import { createRequire } from "node:module";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+
+const require = createRequire(new URL("../src/Paparr.UI/package.json", import.meta.url));
+const { chromium, devices, expect } = require("@playwright/test");
+let input = "";
+for await (const chunk of process.stdin) input += chunk;
+const { url, password, outputDirectory, expectedHash } = JSON.parse(input);
+await mkdir(outputDirectory, { recursive: true });
+const browser = await chromium.launch();
+const errors = [];
+let page;
+try {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  page = await context.newPage();
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto(url);
+  await expect(page.getByRole("heading", { name: "Sign in to Paparr" })).toBeVisible();
+  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  await page.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  await expect(page.getByRole("region", { name: "Duplicate files", exact: true }))
+    .toContainText("copies/The Quiet Atlas copy.epub");
+  await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Needs review/ }).click();
+  await page.getByRole("button", { name: /Untitled.epub/ }).click();
+  await expect(page.getByText(/No complete metadata was found/)).toBeVisible();
+  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await page.getByLabel("Title", { exact: true }).fill("A Reader's Notebook");
+  await page.getByLabel("Author", { exact: true }).fill("Demo Author");
+  await page.getByLabel("ISBN (optional)", { exact: true }).fill("0-306-40615-2");
+  await page.getByLabel("Publisher (optional)", { exact: true }).fill("Éditions & Compagnie");
+  await page.getByLabel("Publication year (optional)", { exact: true }).fill("2020");
+  await page.getByLabel("Language tag (optional)", { exact: true }).fill("fr");
+  await page.getByRole("button", { name: "Save metadata choice", exact: true }).click();
+  await expect(page.getByText("DESTINATION PREVIEW", { exact: true })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: join(outputDirectory, "review-desktop.png"), fullPage: true });
+  const approvalResponse = page.waitForResponse(response =>
+    response.request().method() === "POST" && /\/accept\/\d+$/.test(new URL(response.url()).pathname));
+  await page.getByRole("button", { name: "Approve & import", exact: true }).click();
+  const approval = await approvalResponse;
+  expect(approval.ok()).toBe(true);
+  const accepted = await approval.json();
+  expect(accepted.status).toBe("Completed");
+  expect(accepted.acceptedBook.title).toBe("A Reader's Notebook");
+  expect(accepted.acceptedBook.edition.isbn13).toBe("9780306406157");
+  expect(accepted.acceptedBook.edition.publisher).toBe("Éditions & Compagnie");
+  await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  const notebook = page.getByRole("button", { name: /A Reader's Notebook/ });
+  await expect(notebook).toContainText("Imported");
+  await notebook.click();
+  await expect(page.getByRole("region", { name: "Import details" }))
+    .toContainText("A Reader's Notebook");
+  await expect(page.getByText("IN YOUR LIBRARY", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Library health", exact: true }).click();
+  await page.getByRole("button", { name: "Start integrity scan", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Scan complete" })).toBeVisible({ timeout: 45000 });
+  await expect(page.getByRole("region", { name: "Latest integrity scan", exact: true }))
+    .toContainText("This scan covered 2 books.", { timeout: 45000 });
+  await expect(page.getByRole("cell", { name: "Verified", exact: true })).toHaveCount(2);
+  const downloadEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download The Quiet Atlas", exact: true }).click();
+  const downloaded = await downloadEvent;
+  expect(downloaded.suggestedFilename()).toBe("The Quiet Atlas - Mara Finch.epub");
+  const downloadPath = join(outputDirectory, "downloaded-atlas.epub");
+  await downloaded.saveAs(downloadPath);
+  expect(createHash("sha256").update(await readFile(downloadPath)).digest("hex").toUpperCase()).toBe(expectedHash);
+  const exportEvent = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export A Reader's Notebook for Calibre", exact: true }).click();
+  const exported = await exportEvent;
+  expect(exported.suggestedFilename()).toBe(`paparr-book-${accepted.acceptedBook.id}.zip`);
+  await exported.saveAs(join(outputDirectory, "calibre-notebook.zip"));
+  await page.screenshot({ path: join(outputDirectory, "library-desktop.png"), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await page.getByRole("button", { name: "Worker status", exact: true }).click();
+  const worker = page.getByRole("region", { name: "Worker status", exact: true });
+  await expect(worker.getByRole("article")).toHaveCount(4);
+  await expect(worker.getByRole("article", { name: "File discovery" })).toContainText("Succeeded");
+  await worker.getByRole("button", { name: "Show temporary file status" }).click();
+  await expect(worker.getByRole("region", { name: "Temporary file maintenance" }).getByText("Settled attempts", { exact: true })).toBeVisible();
+  await page.screenshot({ path: join(outputDirectory, "worker-desktop.png"), fullPage: true });
+  const mobileContext = await browser.newContext({
+    ...devices["iPhone 13"], storageState: await context.storageState(),
+  });
+  const mobile = await mobileContext.newPage();
+  mobile.on("pageerror", error => errors.push(error.message));
+  await mobile.goto(url + "/?view=library");
+  await expect(mobile.getByRole("cell", { name: "Verified", exact: true })).toHaveCount(2);
+  await mobile.screenshot({ path: join(outputDirectory, "library-mobile.png"), fullPage: true });
+  for (const surface of [page, mobile]) {
+    expect(await surface.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  }
+  await mobile.getByRole("button", { name: "Worker status", exact: true }).click();
+  await expect(mobile.getByRole("region", { name: "Worker status", exact: true }).getByRole("article"))
+    .toHaveCount(4);
+  await mobile.getByRole("button", { name: "Show temporary file status" }).click();
+  await expect(mobile.getByRole("region", { name: "Temporary file maintenance" }).getByText("Settled attempts", { exact: true })).toBeVisible();
+  expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await mobile.screenshot({ path: join(outputDirectory, "worker-mobile.png"), fullPage: true });
+  await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  await expect(mobile.getByRole("region", { name: "Folder profile", exact: true })).toContainText("Fiction");
+  await expect(mobile.getByRole("region", { name: "Duplicate files", exact: true }))
+    .toContainText("copies/The Quiet Atlas copy.epub");
+  expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await mobile.screenshot({ path: join(outputDirectory, "duplicates-mobile.png"), fullPage: true });
+  await mobile.getByRole("button", { name: "Undo import…" }).click();
+  const undo = mobile.getByRole("region", { name: "Undo import", exact: true });
+  await expect(undo.getByText("Keep original", { exact: true })).toBeVisible();
+  await expect(undo.getByRole("button", { name: "Undo import", exact: true })).toBeEnabled();
+  expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  await mobile.screenshot({ path: join(outputDirectory, "undo-mobile.png"), fullPage: true });
+  const undoResponse = mobile.waitForResponse(response => /\/api\/imports\/\d+\/undo$/.test(response.url()) && response.request().method() === "POST");
+  await undo.getByRole("button", { name: "Undo import", exact: true }).click();
+  const undone = await (await undoResponse).json();
+  expect(undone.status).toBe("AwaitingApproval");
+  expect(undone.acceptedBook).toBeNull();
+  await mobile.getByRole("button", { name: "Review again" }).click();
+  await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
+  const reapprovalResponse = mobile.waitForResponse(response => /\/api\/imports\/\d+\/accept\/\d+$/.test(response.url()) && response.request().method() === "POST");
+  await mobile.getByRole("button", { name: "Approve & import" }).click();
+  const republished = await (await reapprovalResponse).json();
+  expect(republished.status).toBe("Completed");
+  const republishedFile = await mobileContext.request.get(url + `/api/library/${republished.acceptedBook.id}/file`);
+  expect(republishedFile.status()).toBe(200);
+  expect(createHash("sha256").update(await republishedFile.body()).digest("hex").toUpperCase()).toBe(expectedHash);
+  await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Needs attention/ }).click();
+  await mobile.getByRole("button", { name: /Incomplete download.pdf/ }).click();
+  await expect(mobile.getByRole("region", { name: "Import details" }))
+    .toContainText("The ebook could not be read.");
+  await expect(mobile.getByRole("button", { name: "Retry import", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sign in to Paparr" })).toBeVisible();
+  expect((await mobileContext.request.get(url + "/api/imports")).status()).toBe(401);
+  expect(errors).toEqual([]);
+  console.log("Packaged desktop/mobile browser checks passed: sign-in, duplicates, manual review, approval, undo and reapproval, integrity scan, failed import, and revoked session.");
+} catch (error) {
+  await page?.screenshot({ path: join(outputDirectory, "failure.png"), fullPage: true }).catch(() => {});
+  const message = String(error).replaceAll(password, "[redacted]");
+  await writeFile(join(outputDirectory, "failure.txt"), message);
+  console.error(message);
+  process.exitCode = 1;
+} finally {
+  await browser.close();
+}

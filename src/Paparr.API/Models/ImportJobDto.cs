@@ -1,37 +1,47 @@
+using System.ComponentModel.DataAnnotations;
+using Paparr.API.Domain;
+
 namespace Paparr.API.Models;
 
-public class ImportJobDto
+public sealed record ImportJobDto(long Id, string FileName, string Status, DateTime CreatedAt, DateTime UpdatedAt,
+    Guid Revision, int AttemptCount, string? LastError, IReadOnlyList<MetadataCandidateDto> Candidates, BookDto? AcceptedBook,
+    IReadOnlyList<ImportEventDto> Events, SourceCleanupDto Cleanup, ImportProfileDto Profile)
 {
-    public long Id { get; set; }
-    public required string FilePath { get; set; }
-    public required string Status { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
-    public List<MetadataCandidateDto> Candidates { get; set; } = new();
-    public BookDto? AcceptedBook { get; set; }
+    public static ImportJobDto From(ImportJob job, bool cleanupEnabled = false) => new(job.Id, Path.GetFileName(job.FilePath), job.Status.ToString(),
+        job.CreatedAt, job.UpdatedAt, job.Revision, job.AttemptCount, job.LastError,
+        job.Candidates.OrderByDescending(c => c.ConfidenceScore).ThenBy(c => c.Id)
+            .Select(c => new MetadataCandidateDto(c.Id, c.Title, c.Author, c.Source, c.ExternalId, c.ConfidenceScore, c.Evidence,
+                EditionDto.From(c.Isbn13, c.IsbnStatus, c.Publisher, c.PublicationYear, c.Language))).ToList(),
+        job.AcceptedBook is { } b ? new BookDto(b.Id, b.Title, b.Author, b.Source, b.ExternalId, b.ImportedAt,
+            EditionDto.From(b.Isbn13, b.IsbnStatus, b.Publisher, b.PublicationYear, b.Language)) : null,
+        job.Events.OrderBy(e => e.CreatedAt).ThenBy(e => e.Id).Select(e => new ImportEventDto(e.Message, e.CreatedAt)).ToList(),
+        new SourceCleanupDto(job.CleanupStatus.ToString(), job.CleanupAttemptCount, job.CleanupError,
+            cleanupEnabled && job.Status == ImportStatus.Completed && job.CleanupStatus == SourceCleanupStatus.Retained),
+        new ImportProfileDto(job.ProfileName, job.ProfileIngestSubfolder, job.CollectionSegment, job.FilenameOrder.ToString()));
 }
 
-public class MetadataCandidateDto
-{
-    public long Id { get; set; }
-    public required string Title { get; set; }
-    public required string Author { get; set; }
-    public required string Source { get; set; }
-    public required string ExternalId { get; set; }
-    public decimal ConfidenceScore { get; set; }
-}
+public sealed record ImportProfileDto(string? Name, string? SourceFolder, string? Collection, string FilenameOrder);
 
-public class BookDto
+public sealed record SourceCleanupDto(string Status, int AttemptCount, string? Error, bool CanRetry);
+public sealed record MetadataCandidateDto(long Id, string Title, string Author, string Source, string ExternalId,
+    decimal ConfidenceScore, string Evidence, EditionDto? Edition = null);
+public sealed record BookDto(long Id, string Title, string Author, string Source, string ExternalId, DateTime ImportedAt,
+    EditionDto? Edition = null);
+public sealed record EditionDto(string? Isbn13, string IsbnStatus, string? Publisher, int? PublicationYear, string? Language)
 {
-    public long Id { get; set; }
-    public required string Title { get; set; }
-    public required string Author { get; set; }
-    public required string Source { get; set; }
-    public required string ExternalId { get; set; }
-    public DateTime ImportedAt { get; set; }
+    public static EditionDto From(string? isbn13, EditionIsbnStatus isbnStatus, string? publisher, int? publicationYear, string? language) =>
+        new(isbn13, isbnStatus.ToString(), publisher, publicationYear, language);
 }
-
-public class AcceptCandidateRequest
-{
-    public long CandidateId { get; set; }
-}
+public sealed record ImportEventDto(string Message, DateTime CreatedAt);
+public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
+public sealed record ImportPreviewDto(string RelativePath, bool DestinationExists, bool SourceRetained);
+public sealed record DuplicateSourceDto(long Id, string FileName, string? RelativePath, DateTime DiscoveredAt);
+public sealed record EditMetadataRequest(
+    [Required, StringLength(300, MinimumLength = 1)] string Title,
+    [Required, StringLength(300, MinimumLength = 1)] string Author,
+    EditionInputDto? Edition = null);
+public sealed record EditionInputDto(
+    [StringLength(64)] string? Isbn,
+    [StringLength(300)] string? Publisher,
+    [Range(1000, 9999)] int? PublicationYear,
+    [StringLength(35)] string? Language);
