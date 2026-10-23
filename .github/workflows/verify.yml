@@ -29,7 +29,7 @@ jobs:
           ./scripts/Test-ReleaseBundle.ps1
           ./scripts/Measure-Coverage.ps1
           Get-Content .tools/backend-coverage.md -Raw | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: backend-results
@@ -59,7 +59,7 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: browser-results
@@ -74,7 +74,7 @@ jobs:
         run: |
           ./scripts/Test-ProxyTrust.ps1
           ./scripts/Test-TlsDeployment.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: tls-results
@@ -97,7 +97,7 @@ jobs:
       - name: Install, import, recreate, and restore
         shell: pwsh
         run: ./scripts/Test-Deployment.ps1 -Browser
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: deployment-results
