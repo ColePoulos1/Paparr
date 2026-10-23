@@ -139,7 +139,7 @@ try {
   console.log("Packaged desktop/mobile browser checks passed: sign-in, duplicates, manual review, approval, undo and reapproval, integrity scan, failed import, and revoked session.");
 } catch (error) {
   await page?.screenshot({ path: join(outputDirectory, "failure.png"), fullPage: true }).catch(() => {});
-  const message = String(error).replaceAll(password, "[redacted]");
+  const message = String(error.stack ?? error).replaceAll(password, "[redacted]");
   await writeFile(join(outputDirectory, "failure.txt"), message);
   console.error(message);
   process.exitCode = 1;
