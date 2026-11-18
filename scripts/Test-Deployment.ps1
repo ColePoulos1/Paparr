@@ -142,8 +142,12 @@ try {
     Invoke-Compose -Arguments @('exec', '-T', 'postgres', 'pg_restore', '--username=paparr', '--dbname=paparr_restore', '--exit-on-error', '/tmp/paparr-smoke.dump')
     $restoredLibrary = Join-Path $testRoot 'restored-library'
     Copy-Item -LiteralPath (Join-Path $backup 'library') -Destination $restoredLibrary -Recurse
-    if (!$IsWindows) { & chmod 777 $restoredLibrary }
     Set-TestEnvironment $restoredLibrary 'paparr_restore'
+    if (!$IsWindows) {
+        # Copy-Item gives the runner ownership, including nested collection and author folders.
+        Invoke-Compose -Arguments @('run', '--rm', '--no-deps', '--user', 'root', '--entrypoint', 'chown',
+            'paparr-api', '-R', '1654:1654', '/library')
+    }
     Invoke-Compose -Arguments @('up', '-d', '--force-recreate', '--wait', '--wait-timeout', '120')
     Assert-Equal $summary (Invoke-RestMethod "$baseUrl/api/imports/summary" | ConvertTo-Json -Compress) 'History after restore'
     $restoredFiles = @(Get-ChildItem -LiteralPath $restoredLibrary -File -Recurse)

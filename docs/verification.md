@@ -1,5 +1,33 @@
 # Verification record
 
+## October 23, 2026 hosted verification completed
+
+All five jobs passed in [GitHub Actions run 39880822743](https://github.com/ColePoulos1/Paparr/actions/runs/39880822743) for commit `d6d47c4d5dda3061e14b2a72d2d93dd69cf227ad`: Windows unit, backend, frontend, proxy, and deployment. Downloaded artifacts were inspected on October 23. The backend reports contain 147 passing unit and 97 passing PostgreSQL integration cases, with 2,249/2,401 executable lines covered (93.7%). Windows independently passed the same 147 unit cases. Frontend logs confirm 56 component tests, 12 desktop/mobile Chromium cases, lint, production build, and generated-contract checks.
+
+The deployment artifact records twelve successful checks, including restoration into separate storage, approval into the restored collection, verified downloads and export archives, session revocation, and browser undo/reapproval. The TLS artifact records nine successful checks. Desktop library and mobile undo screenshots were inspected. Hosted deployment does not install Calibre; the fourteen-check local run below separately covers two real Calibre imports. Artifacts and logs are saved under `.tools/hosted-fixed-artifacts` and `.tools/hosted-fixed.log`.
+
+The initial hosted failures were in disposable test setup:
+
+- Docker rejected static proxy addresses on an automatically configured subnet. The TLS fixture now obtains an available subnet from Docker and recreates its owned network with that explicit subnet. The corrected local run also passed all nine checks (`.tools/paparr-tls-82dbe38e1be6/results.json`).
+- Restoring with `Copy-Item` gave the runner ownership of nested collection directories. Making only the root writable left the API unable to publish a second book inside `Fiction`. A disposable Linux container reproduced the failure and verified nested publication and deletion after restoring API ownership (`.tools/restore-permissions-regression.log`). The deployment fixture now restores ownership recursively on its own copied library before starting the API.
+
+Browser failure artifacts now preserve stack traces with the test password redacted. No application behavior, personal library, or production database was changed by these fixture fixes.
+
+## October 22, 2026 hosted verification follow-up
+
+The initial [GitHub Actions run 39877408260](https://github.com/ColePoulos1/Paparr/actions/runs/39877408260) checked commit `a79eaaafb4a7a4a2abb45e7ba7365607e8e3edc0` on `main`. The backend, Windows unit, and frontend jobs passed. The proxy and deployment jobs failed. Their logs and artifact contents subsequently established the fixture defects described above.
+
+Local checks on the same source commit used temporary files and disposable PostgreSQL/Compose resources:
+
+- `dotnet tool restore` succeeded; the release build had zero warnings and errors, all 147 backend unit and 97 PostgreSQL integration tests passed, and backend line coverage remained 2,249/2,401 (93.7%).
+- `scripts/verify.ps1 -Coverage` completed successfully: 56 React component tests and 12 desktop/mobile Chromium cases also passed, along with frontend lint, production build, generated API contract checks, and coverage/release-bundle fixtures (312 tests total).
+- `scripts/Test-ProxyTrust.ps1` passed all six spoofing, trusted-peer, and invalid-configuration cases. `scripts/Test-TlsDeployment.ps1` passed all nine checks; evidence is `.tools/paparr-tls-515066664b20/results.json`.
+- `scripts/Test-Deployment.ps1 -Browser -Calibre` passed all fourteen checks, including backup/restore, browser undo/reapproval, and two real isolated Calibre imports. Evidence is `.tools/paparr-smoke-8bc5d5e7df2b/results.json` and its `browser` directory. Both deployment scripts cleaned up their Docker resources.
+- The transitive NuGet audit and clean Docker frontend dependency installation reported no known vulnerabilities.
+- Source packaging succeeded into `.tools/release-hosted-a79eaaa`, with its manifest identifying the tested commit and archive SHA-256. This archive has not been published.
+
+Logs are `.tools/verify-hosted-preflight.log`, `.tools/deployment-hosted-preflight.log`, `.tools/proxy-hosted-preflight.log`, `.tools/tls-hosted-preflight.log`, and `.tools/dependency-hosted-preflight.log`. These local Windows passes preceded the fixes and successful Linux hosted run above.
+
 ## October 22, 2026 release checkpoint
 
 Executed locally on Windows with .NET SDK 10.0.301/runtime 10.0.9, Node 24, Docker Desktop, and PostgreSQL 18.6 containers. Fixtures and databases were disposable; no personal library was used.

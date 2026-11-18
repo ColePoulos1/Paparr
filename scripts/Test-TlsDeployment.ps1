@@ -147,6 +147,11 @@ try {
     $networkInfo = (Invoke-Docker @('network', 'inspect', $network) | ConvertFrom-Json)[0]
     $subnet = $networkInfo.IPAM.Config | Where-Object { $_.Subnet -match '^\d+\.\d+\.\d+\.\d+/\d+$' } | Select-Object -First 1 -ExpandProperty Subnet
     if (!$subnet) { throw 'The isolated Docker network has no IPv4 subnet.' }
+    # Older Docker engines require an explicitly configured subnet for static proxy addresses.
+    $null = Invoke-Docker @('network', 'rm', $network)
+    $networkCreated = $false
+    $null = Invoke-Docker @('network', 'create', '--subnet', $subnet, '--label', "paparr.tls.smoke=$project", $network)
+    $networkCreated = $true
     $parts = $subnet.Split('/')
     $prefix = [int]$parts[1]
     if ($prefix -gt 24) { throw "Refusing the Docker-assigned IPv4 prefix /$prefix; expected /24 or broader." }

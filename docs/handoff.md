@@ -1,6 +1,12 @@
 # Paparr 0.2.0 handoff
 
-Release checkpoint: October 22, 2026, branch `codex/overhaul`. This file belongs to the release commit; use `git log -1` for its exact identity. Nothing has been pushed, tagged, or published remotely.
+Release checkpoint: October 22, 2026, branch `codex/overhaul`. No tag or release was published at that checkpoint. The subsequent hosted verification attempt is recorded below.
+
+## Hosted verification follow-up
+
+Continuation branch: `codex/hosted-release-verification`. All five jobs passed in [Verify run 39880822743](https://github.com/ColePoulos1/Paparr/actions/runs/39880822743) for commit `d6d47c4d5dda3061e14b2a72d2d93dd69cf227ad`. Uploaded backend reports, browser results, deployment evidence, and TLS evidence were downloaded and inspected. No tag, release, or container image has been published by this continuation.
+
+The initial hosted run exposed two fixture defects. The TLS network now has an explicit subnet before static proxy addresses are assigned, and the restore fixture gives the API user ownership of the entire restored library tree. Browser failures retain redacted stack traces. Local release checks also passed, including real isolated Calibre imports; hosted deployment checks verify the export archive but do not run Calibre. See [verification](verification.md#october-23-2026-hosted-verification-completed) for evidence. The next implementation task is the edition/file identity ADR below; public distribution remains a separate authorized action.
 
 ## Current scope
 
@@ -43,7 +49,7 @@ The older persistent synthetic demo is `paparr-overhaul-smoke` at `http://127.0.
 
 | Priority | Work | First step and acceptance criteria |
 | --- | --- | --- |
-| 1 | Hosted release verification | Push the reviewed branch when authorized, run the configured GitHub Actions jobs, inspect uploaded results, and publish the source archive or container images only after those checks pass. No hosted run is claimed by this checkpoint. |
+| 1 | Public alpha distribution | Hosted verification and artifact inspection passed on `d6d47c4`. Publish a source archive or container images when authorized; verify any subsequent code changes before publishing. |
 | 2 | Edition and file identities | Write an ADR before changing tables. Decide how a work, edition, file, and import relate; handle EPUB/PDF variants, conflicting ISBN evidence, legacy books, and identical-content observations. Migrate existing rows without resetting data and preserve download, audit, undo, and provenance behavior. |
 | 3 | Profile management and explicit rerouting | Add owner-only validation and previews if profiles move into the UI/database. Keep historical snapshots immutable. Rerouting an existing book must be a separately journaled operation with collision, crash, and stale-request tests. |
 | 4 | Retained-file operations | Add an owner-only inspection view for retained stages and failed undo operations, using safe relative paths and actionable history. Offer only operations with proven ownership. Never infer ownership from `.partial` names or age, and never sweep legacy unknown files automatically. |
