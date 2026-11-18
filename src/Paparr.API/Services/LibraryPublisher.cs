@@ -4,7 +4,6 @@ namespace Paparr.API.Services;
 
 public interface ILibraryPublisher
 {
-    Task PublishAsync(string source, string destination, string hash, CancellationToken cancellationToken);
     Task<bool> PrepareAsync(string source, string destination, string staging, string hash,
         Func<CancellationToken, Task> markOwned, CancellationToken cancellationToken);
     Task PromoteAsync(string staging, string destination, string hash, CancellationToken cancellationToken);
@@ -15,25 +14,6 @@ public interface ILibraryPublisher
 
 public sealed class LibraryPublisher(IFileHashService hashes, IOptions<IngestionOptions> options) : ILibraryPublisher
 {
-    public async Task PublishAsync(string source, string destination, string hash, CancellationToken cancellationToken)
-    {
-        var staging = destination + "." + Guid.NewGuid().ToString("N") + ".partial";
-        var owned = false;
-        try
-        {
-            await PrepareAsync(source, destination, staging, hash, _ =>
-            {
-                owned = true;
-                return Task.CompletedTask;
-            }, cancellationToken);
-            await PromoteAsync(staging, destination, hash, cancellationToken);
-        }
-        finally
-        {
-            if (owned) DeleteStage(staging);
-        }
-    }
-
     public async Task<bool> PrepareAsync(string source, string destination, string staging, string hash,
         Func<CancellationToken, Task> markOwned, CancellationToken cancellationToken)
     {

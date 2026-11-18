@@ -10,27 +10,30 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
     IOptions<IngestionOptions> options, TimeProvider clock, ILogger<EbookIngestionService> logger,
     SourceCleanupService cleanup, StagingService staging) : IEbookIngestionService
 {
+    private const string AttemptLimitError = "The attempt limit was reached. Check the file and increase MaxAttempts to retry.";
+
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
     public async Task ProcessImportJobAsync(ImportJob job, CancellationToken cancellationToken = default)
     {
         if (job.Status != ImportStatus.Pending) return;
-        if (job.AttemptCount >= options.Value.MaxAttempts)
+        var reconcileOnly = job.AttemptCount >= options.Value.MaxAttempts;
+        if (reconcileOnly && (job.SelectedCandidateId is null || job.DestinationPath is null))
         {
-            await FailAsync(job, "The attempt limit was reached. Check the file and increase MaxAttempts to retry.", cancellationToken);
+            await FailAsync(job, AttemptLimitError, cancellationToken);
             return;
         }
-        job.AttemptCount++;
+        if (!reconcileOnly) job.AttemptCount++;
         job.LeaseExpiresAt = Now.AddMinutes(options.Value.LeaseMinutes);
         job.LastError = null;
         job.Status = job.SelectedCandidateId.HasValue ? ImportStatus.Publishing : ImportStatus.Processing;
         if (job.Status == ImportStatus.Publishing) job.PublicationFence = Guid.NewGuid();
-        Record(job, $"Attempt {job.AttemptCount} started.");
+        Record(job, reconcileOnly ? "Checking for an existing library copy." : $"Attempt {job.AttemptCount} started.");
         await db.SaveChangesAsync(cancellationToken);
 
         if (job.SelectedCandidateId.HasValue)
         {
-            await PublishAsync(job, cancellationToken);
+            await PublishAsync(job, cancellationToken, reconcileOnly);
             return;
         }
 
@@ -117,17 +120,29 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
         await ProcessImportJobAsync(job, cancellationToken);
     }
 
-    private async Task PublishAsync(ImportJob job, CancellationToken cancellationToken)
+    private async Task PublishAsync(ImportJob job, CancellationToken cancellationToken, bool reconcileOnly = false)
     {
         var candidate = job.Candidates.Single(c => c.Id == job.SelectedCandidateId);
         var fence = job.PublicationFence!.Value;
         try
         {
-            LibraryPaths.EnsureSafeDestination(options.Value.LibraryPath, job.DestinationPath!, job.CollectionSegment);
-            var stage = await staging.PrepareAsync(job, fence, cancellationToken);
+            var destination = job.DestinationPath!;
+            LibraryPaths.EnsureSafeDestination(options.Value.LibraryPath, destination, job.CollectionSegment);
+            var stage = reconcileOnly ? null : await staging.PrepareAsync(job, fence, cancellationToken);
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             if (!await OwnsPublicationAsync(job, fence, cancellationToken)) return;
-            await publisher.PromoteAsync(stage.FilePath, job.DestinationPath!, job.FileHash, cancellationToken);
+            if (stage is not null)
+            {
+                await publisher.PromoteAsync(stage.FilePath, destination, job.FileHash, cancellationToken);
+                stage.Status = PublicationStageStatus.Published;
+                stage.UpdatedAt = Now;
+            }
+            else
+            {
+                LibraryPaths.EnsureSafeDestination(options.Value.LibraryPath, destination, job.CollectionSegment);
+                if (!string.Equals(await hashes.ComputeHashAsync(destination, cancellationToken), job.FileHash, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("The existing library copy does not match the import.");
+            }
             job.AcceptedBook = new Book
             {
                 Title = candidate.Title,
@@ -150,8 +165,6 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             job.LastError = null;
             job.CleanupStatus = options.Value.DeleteSourceAfterImport ? SourceCleanupStatus.Pending : SourceCleanupStatus.NotRequested;
             job.CleanupAfter = options.Value.DeleteSourceAfterImport ? Now : null;
-            stage.Status = PublicationStageStatus.Published;
-            stage.UpdatedAt = Now;
             Record(job, "Verified library copy and completed the import.");
             // A failed commit leaves verified bytes available for a later fenced publication.
             await db.SaveChangesAsync(cancellationToken);
@@ -162,7 +175,8 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
             if (!await OwnsPublicationAsync(job, fence, cancellationToken)) return;
             logger.LogWarning(ex, "Publication failed for import {ImportId}", job.Id);
-            await FailAsync(job, "The book could not be published. Check the source, destination, permissions, and available space, then retry.", cancellationToken);
+            await FailAsync(job, reconcileOnly ? AttemptLimitError :
+                "The book could not be published. Check the source, destination, permissions, and available space, then retry.", cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             throw new ImportConflictException(job.LastError!);
         }

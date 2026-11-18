@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Paparr.API.Data;
 using Paparr.API.Domain;
 using Paparr.API.Services;
+using Paparr.TestFixtures;
 
 namespace Paparr.IntegrationTests;
 
@@ -133,6 +134,36 @@ public sealed class StagingRecoveryTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task Worker_discovers_new_books_after_staging_cleanup_persistence_fails()
+    {
+        using var app = await PaparrFactory.CreateAsync(postgres);
+        var (_, stage) = await SeedStageAsync(app, PublicationStageStatus.Owned);
+        var failure = new CleanupCompletionFailure();
+        var clock = new DiscoveryClock();
+        using var host = app.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(clock);
+            services.AddDbContext<AppDbContext>(options => options.AddInterceptors(failure));
+        }));
+        var incoming = Path.Combine(app.Ingest, "new.pdf");
+        PdfFixture.Write(incoming, "A new book", "A new author");
+        using var scope = host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ImportScanner>().ScanAsync(default);
+        clock.Now += TimeSpan.FromSeconds(6);
+        var worker = ActivatorUtilities.CreateInstance<BackgroundIngestionWorker>(host.Services);
+
+        await worker.RunCycleAsync(default);
+
+        Assert.True(failure.ObservedDeletion);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(PublicationStageStatus.Owned, (await db.PublicationStages.SingleAsync(s => s.Id == stage.Id)).Status);
+        Assert.Equal(ImportStatus.Pending, (await db.ImportJobs.SingleAsync(j => j.FilePath == incoming)).Status);
+        var diagnostics = host.Services.GetRequiredService<WorkerDiagnostics>().Snapshot();
+        Assert.Equal(["Succeeded", "Failed", "Succeeded", "Succeeded"], diagnostics.Stages.Select(s => s.State));
+    }
+
+    [Fact]
     public async Task Maintenance_settles_a_missing_planned_file_without_claiming_ownership()
     {
         using var app = await PaparrFactory.CreateAsync(postgres);
@@ -251,6 +282,12 @@ public sealed class StagingRecoveryTests(PostgresFixture postgres)
             }
             return ValueTask.FromResult(result);
         }
+    }
+
+    private sealed class DiscoveryClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     private sealed class CancelAfterStageHash(CancellationTokenSource cancellation) : IFileHashService

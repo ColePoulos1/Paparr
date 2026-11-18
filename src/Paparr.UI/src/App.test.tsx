@@ -7,14 +7,13 @@ import { emptyDuplicates, job, preview, summary } from "./test/fixtures";
 beforeEach(() => window.history.replaceState(null, "", "/"));
 afterEach(() => vi.unstubAllGlobals());
 
-function mockApi(items = [job]) {
+function mockApi(items = [job], summaryStatus = 200) {
   const fetchMock = vi.fn(async (url: string) => {
     if (url.includes("/duplicates?")) return new Response(JSON.stringify(emptyDuplicates));
+    if (url.endsWith("/summary")) return new Response(JSON.stringify(summary), { status: summaryStatus });
     const body = url.includes("/preview/")
       ? preview
-      : url.endsWith("/summary")
-        ? summary
-        : { items, total: items.length, page: 1, pageSize: 25 };
+      : { items, total: items.length, page: 1, pageSize: 25 };
     return new Response(JSON.stringify(body), { status: 200 });
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -44,6 +43,15 @@ describe("Import workspace", () => {
     expect(
       screen.queryByRole("button", { name: "Approve & import" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps the review queue usable when sidebar counts fail to load", async () => {
+    mockApi([job], 503);
+    render(<App />);
+
+    expect(await screen.findByText(preview.relativePath)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve & import" })).toBeEnabled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("reports request failures and lets the user retry", async () => {

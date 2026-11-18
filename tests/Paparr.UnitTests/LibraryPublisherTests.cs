@@ -55,8 +55,8 @@ public sealed class LibraryPublisherTests
         var source = library.Write("original content");
         var hash = await new FileHashService().ComputeHashAsync(source);
         var destination = LibraryPaths.Destination(library.Library, "Book", "Author", ".epub", hash);
-        await library.Publisher().PublishAsync(source, destination, hash, default);
-        await library.Publisher().PublishAsync(source, destination, hash, default);
+        await library.PublishAsync(source, destination, hash);
+        await library.PublishAsync(source, destination, hash);
         await library.Publisher().CleanupSourceAsync(source, destination, hash, default);
         Assert.Equal("original content", await File.ReadAllTextAsync(destination));
         Assert.True(File.Exists(source));
@@ -71,7 +71,7 @@ public sealed class LibraryPublisherTests
         var hash = await new FileHashService().ComputeHashAsync(source);
         var destination = Path.Combine(library.Library, "occupied.epub");
         await File.WriteAllTextAsync(destination, "existing");
-        await Assert.ThrowsAsync<IOException>(() => library.Publisher().PublishAsync(source, destination, hash, default));
+        await Assert.ThrowsAsync<IOException>(() => library.PublishAsync(source, destination, hash));
         Assert.Equal("existing", await File.ReadAllTextAsync(destination));
         Assert.True(File.Exists(source));
     }
@@ -83,7 +83,7 @@ public sealed class LibraryPublisherTests
         var source = library.Write("before");
         var hash = await new FileHashService().ComputeHashAsync(source);
         await File.WriteAllTextAsync(source, "after");
-        await Assert.ThrowsAsync<IOException>(() => library.Publisher().PublishAsync(source, Path.Combine(library.Library, "book.epub"), hash, default));
+        await Assert.ThrowsAsync<IOException>(() => library.PublishAsync(source, Path.Combine(library.Library, "book.epub"), hash));
         Assert.Empty(Directory.GetFiles(library.Library, "*", SearchOption.AllDirectories));
         Assert.Equal("after", await File.ReadAllTextAsync(source));
     }
@@ -109,7 +109,7 @@ public sealed class LibraryPublisherTests
         var source = library.Write("original");
         var hash = await new FileHashService().ComputeHashAsync(source);
         var destination = Path.Combine(library.Library, "book.epub");
-        await library.Publisher().PublishAsync(source, destination, hash, default);
+        await library.PublishAsync(source, destination, hash);
         await library.Publisher().CleanupSourceAsync(source, destination, hash, default);
         Assert.False(File.Exists(source));
         Assert.Equal("original", await File.ReadAllTextAsync(destination));
@@ -123,7 +123,7 @@ public sealed class LibraryPublisherTests
         var source = library.Write("original");
         var hash = await new FileHashService().ComputeHashAsync(source);
         var destination = Path.Combine(library.Library, "book.epub");
-        await library.Publisher().PublishAsync(source, destination, hash, default);
+        await library.PublishAsync(source, destination, hash);
         File.Delete(source);
         Directory.CreateDirectory(source);
         var replacement = Path.Combine(source, "keep.txt");
@@ -147,7 +147,7 @@ public sealed class LibraryPublisherTests
         var destination = Path.Combine(library.Library, "book.epub");
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => library.Publisher().PublishAsync(source, destination, hash, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => library.PublishAsync(source, destination, hash, cancellation.Token));
         Assert.False(File.Exists(destination));
         Assert.True(File.Exists(source));
         Assert.Empty(Directory.GetFiles(library.Library, "*", SearchOption.AllDirectories));
