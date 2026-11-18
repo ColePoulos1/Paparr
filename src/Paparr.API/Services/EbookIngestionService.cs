@@ -100,7 +100,8 @@ public sealed class EbookIngestionService(AppDbContext db, IMetadataService meta
             throw new ImportConflictException("This import is no longer awaiting review. Refresh its current state.");
         if (candidate.ImportJobId != job.Id)
             throw new ImportConflictException("The selected metadata does not belong to this import.");
-        job.DestinationPath = LibraryPaths.ImportDestination(options.Value.LibraryPath, job, candidate);
+        job.DestinationPath = LibraryPaths.ImportDestination(options.Value.LibraryPath, job.FilePath,
+            job.FileHash, job.CollectionSegment, candidate.Title, candidate.Author);
         job.SelectedCandidateId = candidate.Id;
         job.Status = ImportStatus.Publishing;
         job.PublicationFence = Guid.NewGuid();

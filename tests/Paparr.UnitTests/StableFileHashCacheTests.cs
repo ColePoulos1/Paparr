@@ -100,7 +100,7 @@ public sealed class StableFileHashCacheTests
     }
 
     [Fact]
-    public async Task Capacity_evicts_oldest_insertion_even_when_clock_timestamps_tie()
+    public async Task Repeated_scans_reuse_fresh_hashes_when_one_file_exceeds_capacity()
     {
         using var library = new TemporaryLibrary();
         var first = library.Write("one");
@@ -109,12 +109,15 @@ public sealed class StableFileHashCacheTests
         var cache = new StableFileHashCache(new TestClock(), capacity: 2);
         var hasher = new CountingHasher();
 
-        await cache.GetHashAsync(first, hasher, default);
-        await cache.GetHashAsync(second, hasher, default);
-        await cache.GetHashAsync(third, hasher, default);
-        Assert.Equal("hash-4", await cache.GetHashAsync(first, hasher, default));
-        Assert.Equal("hash-3", await cache.GetHashAsync(third, hasher, default));
-        Assert.Equal(4, hasher.Count);
+        var paths = new[] { first, second, third };
+        for (var scan = 0; scan < 3; scan++)
+        {
+            cache.Retain(paths.ToHashSet());
+            Assert.Equal("hash-1", await cache.GetHashAsync(first, hasher, default));
+            Assert.Equal("hash-2", await cache.GetHashAsync(second, hasher, default));
+            Assert.Equal($"hash-{3 + scan}", await cache.GetHashAsync(third, hasher, default));
+        }
+        Assert.Equal(5, hasher.Count);
     }
 
     private sealed class CountingHasher : IFileHashService

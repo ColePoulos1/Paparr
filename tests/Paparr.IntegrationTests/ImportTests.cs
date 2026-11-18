@@ -31,9 +31,12 @@ public sealed class ImportTests(PostgresFixture postgres)
                 """);
         }
         using var client = app.CreateClient();
-        var response = await client.GetFromJsonAsync<PagedResult<ImportJobDto>>("/api/imports");
+        var response = await client.GetFromJsonAsync<PagedResult<ImportListItemDto>>("/api/imports");
         Assert.NotNull(response);
-        var job = Assert.Single(response.Items);
+        var row = Assert.Single(response.Items);
+        Assert.Equal("Legacy title", row.Title);
+        Assert.Equal("Legacy author", row.Author);
+        var job = (await client.GetFromJsonAsync<ImportJobDto>($"/api/imports/{row.Id}"))!;
         Assert.Equal("legacy.epub", job.FileName);
         Assert.Equal("Pending", job.Status);
         Assert.Equal(0, job.AttemptCount);
@@ -179,6 +182,9 @@ public sealed class ImportTests(PostgresFixture postgres)
         var preview = await client.GetFromJsonAsync<ImportPreviewDto>($"/api/imports/{id}/preview/{before.Candidates.Single().Id}");
         Assert.NotNull(preview);
         Assert.False(Path.IsPathRooted(preview.RelativePath));
+        var otherId = await app.SeedAsync();
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await client.GetAsync($"/api/imports/{otherId}/preview/{before.Candidates.Single().Id}")).StatusCode);
         Assert.Empty(Directory.GetFiles(app.Library, "*", SearchOption.AllDirectories));
         Assert.Equal(before.Revision, (await app.ReadAsync(id)).Revision);
     }
@@ -190,11 +196,15 @@ public sealed class ImportTests(PostgresFixture postgres)
         using var client = app.CreateClient();
         var id = await app.SeedAsync();
         (await client.PostAsJsonAsync($"/api/imports/{id}/metadata", new { title = "Corrected title", author = "Correct author" })).EnsureSuccessStatusCode();
-        var result = await client.GetFromJsonAsync<PagedResult<ImportJobDto>>("/api/imports?search=Corrected&pageSize=1");
+        var result = await client.GetFromJsonAsync<PagedResult<ImportListItemDto>>("/api/imports?search=Corrected&pageSize=1");
         Assert.NotNull(result);
         Assert.Equal(1, result.Total);
-        var job = Assert.Single(result.Items);
-        Assert.DoesNotContain(app.Root, job.FileName);
+        var row = Assert.Single(result.Items);
+        Assert.Equal(id, row.Id);
+        Assert.Equal("Corrected title", row.Title);
+        Assert.Equal("Correct author", row.Author);
+        Assert.DoesNotContain(app.Root, row.FileName);
+        var job = (await client.GetFromJsonAsync<ImportJobDto>($"/api/imports/{row.Id}"))!;
         Assert.Contains(job.Candidates, c => c.Source == "manual" && c.Title == "Corrected title");
         Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/imports?pageSize=1000")).StatusCode);
     }

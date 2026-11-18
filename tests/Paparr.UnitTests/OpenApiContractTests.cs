@@ -19,6 +19,8 @@ public sealed class OpenApiContractTests
 
         AssertRequiredNullable(schemas.GetProperty("ImportJobDto"), "lastError");
         AssertRequiredNullable(schemas.GetProperty("ImportJobDto"), "acceptedBook");
+        AssertRequiredNullable(schemas.GetProperty("ImportListItemDto"), "title");
+        AssertRequiredNullable(schemas.GetProperty("ImportListItemDto"), "author");
         AssertRequiredNullable(schemas.GetProperty("DuplicateSourceDto"), "relativePath");
         AssertRequiredNullable(schemas.GetProperty("LatestLibraryAuditDto"), "audit");
         AssertRequiredNullable(schemas.GetProperty("WorkerDiagnosticsSnapshot"), "lastProgressAt");
@@ -51,7 +53,8 @@ public sealed class OpenApiContractTests
     public void Import_duplicate_library_and_worker_responses_have_usable_typed_schemas()
     {
         using var document = CreateDocument();
-        AssertPageResponse(document, "/api/imports", "ImportJobDto");
+        AssertPageResponse(document, "/api/imports", "ImportListItemDto");
+        Assert.True(References(GetResponseSchema(document, "/api/imports/{id}", "get"), "ImportJobDto"));
         AssertPageResponse(document, "/api/imports/{id}/duplicates", "DuplicateSourceDto");
         AssertPageResponse(document, "/api/library", "LibraryBookDto");
 
@@ -87,6 +90,7 @@ public sealed class OpenApiContractTests
         var schemas = Schemas(document);
 
         AssertEnumValues(schemas.GetProperty("ImportJobDto"), "status", Enum.GetNames<ImportStatus>());
+        AssertEnumValues(schemas.GetProperty("ImportListItemDto"), "status", Enum.GetNames<ImportStatus>());
         AssertEnumValues(schemas.GetProperty("SourceCleanupDto"), "status", Enum.GetNames<SourceCleanupStatus>());
         AssertEnumValues(schemas.GetProperty("LibraryBookDto"), "integrityStatus", Enum.GetNames<IntegrityStatus>());
         AssertEnumValues(schemas.GetProperty("LibraryAuditDto"), "status", Enum.GetNames<AuditStatus>());

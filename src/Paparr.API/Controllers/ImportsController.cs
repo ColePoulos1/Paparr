@@ -18,13 +18,13 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
         .Include(j => j.AcceptedBook).Include(j => j.Events).AsSplitQuery();
 
     [HttpGet]
-    public async Task<ActionResult<PagedResult<ImportJobDto>>> GetImports(CancellationToken ct,
+    public async Task<ActionResult<PagedResult<ImportListItemDto>>> GetImports(CancellationToken ct,
         ImportStatus? status = null, string? search = null, int page = 1, int pageSize = 25)
     {
         if (page < 1 || page > 100000 || pageSize is < 1 or > 100 || search?.Length > 200 ||
             (status.HasValue && !Enum.IsDefined(status.Value)))
             return ValidationProblem("Use a valid page, page size from 1 to 100, and search of at most 200 characters.");
-        var query = Details.AsNoTracking();
+        var query = db.ImportJobs.AsNoTracking();
         if (status.HasValue) query = query.Where(j => j.Status == status.Value);
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -34,8 +34,20 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
         }
         var total = await query.CountAsync(ct);
         var jobs = await query.OrderByDescending(j => j.CreatedAt).ThenByDescending(j => j.Id)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);
-        return Ok(new PagedResult<ImportJobDto>(jobs.Select(ToDto).ToList(), total, page, pageSize));
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(j => new
+            {
+                j.Id,
+                j.FilePath,
+                j.Status,
+                AcceptedTitle = j.AcceptedBook == null ? null : j.AcceptedBook.Title,
+                AcceptedAuthor = j.AcceptedBook == null ? null : j.AcceptedBook.Author,
+                BestCandidate = j.Candidates.OrderByDescending(c => c.ConfidenceScore).ThenBy(c => c.Id)
+                    .Select(c => new { c.Title, c.Author }).FirstOrDefault()
+            }).ToListAsync(ct);
+        var items = jobs.Select(j => new ImportListItemDto(j.Id, Path.GetFileName(j.FilePath), j.Status.ToString(),
+            j.AcceptedTitle ?? j.BestCandidate?.Title, j.AcceptedAuthor ?? j.BestCandidate?.Author)).ToList();
+        return Ok(new PagedResult<ImportListItemDto>(items, total, page, pageSize));
     }
 
     [HttpGet("summary")]
@@ -90,11 +102,13 @@ public sealed class ImportsController(AppDbContext db, IEbookIngestionService in
     [HttpGet("{id:long}/preview/{candidateId:long}")]
     public async Task<ActionResult<ImportPreviewDto>> Preview(long id, long candidateId, CancellationToken ct)
     {
-        var job = await Details.AsNoTracking().FirstOrDefaultAsync(j => j.Id == id, ct);
-        if (job == null) return NotFound();
-        var candidate = job.Candidates.FirstOrDefault(c => c.Id == candidateId);
+        var candidate = await db.ImportJobs.AsNoTracking().Where(j => j.Id == id)
+            .SelectMany(j => j.Candidates.Where(c => c.Id == candidateId),
+                (j, c) => new { j.FilePath, j.FileHash, j.CollectionSegment, c.Title, c.Author })
+            .SingleOrDefaultAsync(ct);
         if (candidate == null) return NotFound();
-        var destination = LibraryPaths.ImportDestination(options.Value.LibraryPath, job, candidate);
+        var destination = LibraryPaths.ImportDestination(options.Value.LibraryPath, candidate.FilePath,
+            candidate.FileHash, candidate.CollectionSegment, candidate.Title, candidate.Author);
         return Ok(new ImportPreviewDto(Path.GetRelativePath(options.Value.LibraryPath, destination).Replace('\\', '/'),
             System.IO.File.Exists(destination), !options.Value.DeleteSourceAfterImport));
     }

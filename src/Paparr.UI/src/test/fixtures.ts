@@ -1,4 +1,4 @@
-import type { ImportJob, Summary } from "../api";
+import type { ImportJob, Page, Summary } from "../api";
 
 export const emptyDuplicates = { items: [], total: 0, page: 1, pageSize: 25 };
 
@@ -52,6 +52,14 @@ export const job: ImportJob = {
     },
   ],
 };
+export function importRow(job: ImportJob): Page["items"][number] {
+  const book = job.acceptedBook ?? job.candidates[0];
+  return {
+    id: job.id, fileName: job.fileName, status: job.status,
+    title: book?.title ?? null, author: book?.author ?? null,
+  };
+}
+
 export const summary: Summary = {
   AwaitingApproval: 1,
   Pending: 2,
