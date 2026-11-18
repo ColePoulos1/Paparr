@@ -95,12 +95,6 @@ export default function App({ signOut }: AppProps) {
       .then((page) => {
         if (controller.signal.aborted) return;
         setResult(page);
-        setDraftJob((previous) =>
-          previous
-            ? (page.items.find((job) => job.id === previous.id) ?? previous)
-            : null,
-        );
-        setSummary(counts);
         setError("");
       })
       .catch((reason: Error) => {
