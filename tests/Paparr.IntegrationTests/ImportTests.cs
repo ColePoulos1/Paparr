@@ -78,10 +78,15 @@ public sealed class ImportTests(PostgresFixture postgres)
         Assert.Contains(after.Events, e => e.Message == "Retry queued.");
     }
 
-    [Fact]
-    public async Task Failed_database_commit_retains_source_and_recovery_finishes_existing_publication()
+    [Theory]
+    [InlineData("3", "matching")]
+    [InlineData("1", "matching")]
+    [InlineData("1", "missing")]
+    [InlineData("1", "different")]
+    public async Task Failed_database_commit_retains_source_and_recovery_checks_existing_publication(string maxAttempts, string destinationState)
     {
         using var app = await PaparrFactory.CreateAsync(postgres);
+        app.SettingsOverrides["MaxAttempts"] = maxAttempts;
         using var client = app.CreateClient();
         var id = await app.SeedAsync();
         var before = await app.ReadAsync(id);
@@ -94,19 +99,41 @@ public sealed class ImportTests(PostgresFixture postgres)
         Assert.True(File.Exists(interrupted.DestinationPath));
         Assert.Null(interrupted.AcceptedBook);
 
+        var destination = interrupted.DestinationPath!;
+        if (destinationState == "missing") File.Delete(destination);
+        if (destinationState == "different") await File.WriteAllTextAsync(destination, "another book");
+
         using (var scope = app.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var job = await db.ImportJobs.Include(j => j.Candidates).SingleAsync(j => j.Id == id);
             job.LeaseExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+            job.AttemptCount = 1;
             await db.SaveChangesAsync();
         }
         await ActivatorUtilities.CreateInstance<BackgroundIngestionWorker>(app.Services).RunCycleAsync(default);
         var recovered = await app.ReadAsync(id);
-        Assert.Equal(ImportStatus.Completed, recovered.Status);
-        Assert.False(File.Exists(before.FilePath));
-        Assert.Single(Directory.GetFiles(app.Library, "*", SearchOption.AllDirectories));
         Assert.Contains(recovered.Events, e => e.Message == "Recovered an interrupted attempt.");
+        Assert.Equal(maxAttempts == "1" ? 1 : 2, recovered.AttemptCount);
+        using var verification = app.Services.CreateScope();
+        var publicationStages = verification.ServiceProvider.GetRequiredService<AppDbContext>().PublicationStages;
+        Assert.Equal(maxAttempts == "1" ? 1 : 2, await publicationStages.CountAsync(s => s.ImportJobId == id));
+        if (destinationState == "matching")
+        {
+            Assert.Equal(ImportStatus.Completed, recovered.Status);
+            Assert.Equal(destination, recovered.AcceptedBook?.FilePath);
+            Assert.Equal(before.FileHash, await new FileHashService().ComputeHashAsync(destination));
+            Assert.False(File.Exists(before.FilePath));
+            Assert.Single(Directory.GetFiles(app.Library, "*", SearchOption.AllDirectories));
+        }
+        else
+        {
+            Assert.Equal(ImportStatus.Failed, recovered.Status);
+            Assert.Null(recovered.AcceptedBook);
+            Assert.Equal(before.FileHash, await new FileHashService().ComputeHashAsync(before.FilePath));
+            if (destinationState == "missing") Assert.False(File.Exists(destination));
+            else Assert.Equal("another book", await File.ReadAllTextAsync(destination));
+        }
     }
 
     [Fact]

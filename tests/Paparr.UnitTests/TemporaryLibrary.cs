@@ -22,5 +22,18 @@ public sealed class TemporaryLibrary : IDisposable
         return path;
     }
     public LibraryPublisher Publisher() => new(new FileHashService(), Options.Create(Settings));
+
+    public async Task PublishAsync(string source, string destination, string hash, CancellationToken ct = default)
+    {
+        var publisher = Publisher();
+        var stage = destination + "." + Guid.NewGuid().ToString("N") + ".partial";
+        var prepared = await publisher.PrepareAsync(source, destination, stage, hash, _ => Task.CompletedTask, ct);
+        try { await publisher.PromoteAsync(stage, destination, hash, ct); }
+        finally
+        {
+            if (prepared) publisher.DeleteStage(stage);
+        }
+    }
+
     public void Dispose() => Directory.Delete(Root, true);
 }

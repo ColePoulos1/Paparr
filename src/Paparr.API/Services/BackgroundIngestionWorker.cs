@@ -23,24 +23,47 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
     public async Task RunCycleAsync(CancellationToken ct)
     {
         diagnostics.Start();
-        await diagnostics.RunStageAsync(WorkerStage.QueuedWork, ct, () => RunQueuedWorkAsync(ct));
-        await diagnostics.RunStageAsync(WorkerStage.SourceCleanup, ct, () => RunSourceCleanupAsync(ct));
+        await RunIndependentStageAsync(WorkerStage.QueuedWork, ct, () =>
+            RunBatchesAsync(RunUndoAsync, RunQueuedWorkAsync, ct));
+        await RunIndependentStageAsync(WorkerStage.SourceCleanup, ct, () =>
+            RunBatchesAsync(RunStagingCleanupAsync, RunSourceCleanupAsync, ct));
+        await RunIndependentStageAsync(WorkerStage.LibraryAudit, ct, () => RunLibraryAuditAsync(ct));
+        await diagnostics.RunStageAsync(WorkerStage.Discovery, ct, () => RunDiscoveryAsync(ct));
+    }
+
+    private async Task RunIndependentStageAsync(WorkerStage stage, CancellationToken ct, Func<Task> action)
+    {
         try
         {
-            await diagnostics.RunStageAsync(WorkerStage.LibraryAudit, ct, () => RunLibraryAuditAsync(ct));
+            await diagnostics.RunStageAsync(stage, ct, action);
         }
-        catch (DbUpdateConcurrencyException) { logger.LogDebug("Library scan was claimed by another worker"); }
+        catch (DbUpdateConcurrencyException) when (stage == WorkerStage.LibraryAudit)
+        {
+            logger.LogDebug("Library scan was claimed by another worker");
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch (Exception ex) { logger.LogError(ex, "Library scan will resume from its durable cursor"); }
-        await diagnostics.RunStageAsync(WorkerStage.Discovery, ct, () => RunDiscoveryAsync(ct));
+        catch (Exception ex) { logger.LogError(ex, "Worker stage {Stage} failed", stage); }
+    }
+
+    private static async Task RunBatchesAsync(Func<CancellationToken, Task> first,
+        Func<CancellationToken, Task> next, CancellationToken ct)
+    {
+        try { await first(ct); }
+        finally
+        {
+            ct.ThrowIfCancellationRequested();
+            await next(ct);
+        }
+    }
+
+    private async Task RunUndoAsync(CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ImportUndoService>().RunBatchAsync(ct);
     }
 
     private async Task RunQueuedWorkAsync(CancellationToken ct)
     {
-        using (var undoScope = scopes.CreateScope())
-        {
-            await undoScope.ServiceProvider.GetRequiredService<ImportUndoService>().RunBatchAsync(ct);
-        }
         // Queue progress must not depend on the watch directory being available.
         using (var scope = scopes.CreateScope())
         {
@@ -69,12 +92,14 @@ public sealed class BackgroundIngestionWorker(IServiceScopeFactory scopes, IOpti
         }
     }
 
+    private async Task RunStagingCleanupAsync(CancellationToken ct)
+    {
+        using var scope = scopes.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<StagingService>().RunBatchAsync(ct);
+    }
+
     private async Task RunSourceCleanupAsync(CancellationToken ct)
     {
-        using (var stagingScope = scopes.CreateScope())
-        {
-            await stagingScope.ServiceProvider.GetRequiredService<StagingService>().RunBatchAsync(ct);
-        }
         using (var scope = scopes.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

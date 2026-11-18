@@ -70,17 +70,21 @@ export default function App({ signOut }: AppProps) {
   }, []);
 
   useEffect(() => {
+    const interval = window.setInterval(reload, 15000);
+    return () => window.clearInterval(interval);
+  }, [reload]);
+
+  useEffect(() => {
     const controller = new AbortController();
-    if (view !== "imports") {
-      request<Summary>("/api/imports/summary", { signal: controller.signal })
-        .then((counts) => { if (!controller.signal.aborted) setSummary(counts); })
-        .catch(() => { if (!controller.signal.aborted) setSummary(null); });
-      const interval = window.setInterval(reload, 15000);
-      return () => {
-        controller.abort();
-        window.clearInterval(interval);
-      };
-    }
+    request<Summary>("/api/imports/summary", { signal: controller.signal })
+      .then((counts) => { if (!controller.signal.aborted) setSummary(counts); })
+      .catch(() => { if (!controller.signal.aborted) setSummary(null); });
+    return () => controller.abort();
+  }, [refresh, view]);
+
+  useEffect(() => {
+    if (view !== "imports") return;
+    const controller = new AbortController();
     const params = new URLSearchParams({
       status: filter.status,
       search: filter.search,
@@ -88,11 +92,8 @@ export default function App({ signOut }: AppProps) {
       pageSize: "25",
     });
     setLoading(true);
-    Promise.all([
-      request<Page>("/api/imports?" + params, { signal: controller.signal }),
-      request<Summary>("/api/imports/summary", { signal: controller.signal }),
-    ])
-      .then(([page, counts]) => {
+    request<Page>("/api/imports?" + params, { signal: controller.signal })
+      .then((page) => {
         if (controller.signal.aborted) return;
         setResult(page);
         setDraftJob((previous) =>
@@ -100,7 +101,6 @@ export default function App({ signOut }: AppProps) {
             ? (page.items.find((job) => job.id === previous.id) ?? previous)
             : null,
         );
-        setSummary(counts);
         setError("");
       })
       .catch((reason: Error) => {
@@ -109,12 +109,8 @@ export default function App({ signOut }: AppProps) {
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
-    const interval = window.setInterval(reload, 15000);
-    return () => {
-      controller.abort();
-      window.clearInterval(interval);
-    };
-  }, [filter, refresh, reload, view]);
+    return () => controller.abort();
+  }, [filter, refresh, view]);
 
   function navigate(next: typeof filter) {
     setUndone(false);
