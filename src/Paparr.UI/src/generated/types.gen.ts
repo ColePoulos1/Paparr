@@ -70,8 +70,16 @@ export type ImportJobDto = {
     profile: ImportProfileDto;
 };
 
-export type ImportJobDtoPagedResult = {
-    items: Array<ImportJobDto>;
+export type ImportListItemDto = {
+    id: number;
+    fileName: string;
+    status: 'Pending' | 'Processing' | 'AwaitingApproval' | 'Publishing' | 'Completed' | 'Failed' | 'Undoing';
+    title: string | null;
+    author: string | null;
+};
+
+export type ImportListItemDtoPagedResult = {
+    items: Array<ImportListItemDto>;
     total: number;
     page: number;
     pageSize: number;
@@ -305,7 +313,7 @@ export type GetApiImportsResponses = {
     /**
      * OK
      */
-    200: ImportJobDtoPagedResult;
+    200: ImportListItemDtoPagedResult;
 };
 
 export type GetApiImportsResponse = GetApiImportsResponses[keyof GetApiImportsResponses];

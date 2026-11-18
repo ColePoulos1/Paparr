@@ -1,5 +1,4 @@
 using System.Text;
-using Paparr.API.Domain;
 
 namespace Paparr.API.Services;
 
@@ -67,11 +66,12 @@ public static class LibraryPaths
         return path;
     }
 
-    public static string ImportDestination(string root, ImportJob job, MetadataCandidate candidate)
+    public static string ImportDestination(string root, string filePath, string hash, string? collection,
+        string title, string author)
     {
         try
         {
-            return Destination(root, candidate.Title, candidate.Author, Path.GetExtension(job.FilePath), job.FileHash, job.CollectionSegment);
+            return Destination(root, title, author, Path.GetExtension(filePath), hash, collection);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {

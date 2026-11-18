@@ -40,22 +40,21 @@ export default function App({ signOut }: AppProps) {
   });
   const [summary, setSummary] = useState<Summary | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<ImportJob | null>(null);
+  const [detailError, setDetailError] = useState<{ id: number; message: string } | null>(null);
   const [draftJob, setDraftJob] = useState<ImportJob | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
   const [undone, setUndone] = useState(false);
-  const selectedFromResult = result.items.find((job) => job.id === selectedId);
-  const selected =
-    selectedFromResult ??
-    (draftJob && (selectedId === null || draftJob.id === selectedId)
-      ? draftJob
-      : undefined) ??
-    result.items[0];
-  const selectedIsFilteredOut = Boolean(
-    selected && !result.items.some((job) => job.id === selected.id),
-  );
+  const activeDraft = draftJob && (selectedId === null || draftJob.id === selectedId)
+    ? draftJob
+    : null;
+  const selectedRow = result.items.find((job) => job.id === (selectedId ?? activeDraft?.id))
+    ?? (activeDraft ? undefined : result.items[0]);
+  const activeId = selectedRow?.id ?? activeDraft?.id;
+  const selected = detail?.id === activeId ? detail : activeDraft;
   const reload = useCallback(() => setRefresh((n) => n + 1), []);
 
   useEffect(() => {
@@ -95,11 +94,6 @@ export default function App({ signOut }: AppProps) {
       .then(([page, counts]) => {
         if (controller.signal.aborted) return;
         setResult(page);
-        setDraftJob((previous) =>
-          previous
-            ? (page.items.find((job) => job.id === previous.id) ?? previous)
-            : null,
-        );
         setSummary(counts);
         setError("");
       })
@@ -116,6 +110,22 @@ export default function App({ signOut }: AppProps) {
     };
   }, [filter, refresh, reload, view]);
 
+  useEffect(() => {
+    if (view !== "imports" || !selectedRow) return;
+    const controller = new AbortController();
+    const id = selectedRow.id;
+    request<ImportJob>(`/api/imports/${id}`, { signal: controller.signal })
+      .then((job) => {
+        if (controller.signal.aborted) return;
+        setDetail(job);
+        setDetailError(null);
+      })
+      .catch((reason: Error) => {
+        if (!controller.signal.aborted) setDetailError({ id, message: reason.message });
+      });
+    return () => controller.abort();
+  }, [selectedRow, view]);
+
   function navigate(next: typeof filter) {
     setUndone(false);
     setView("imports");
@@ -131,10 +141,14 @@ export default function App({ signOut }: AppProps) {
   function changed(job: ImportJob) {
     if (job.status === "AwaitingApproval" && (selected?.status === "Completed" || selected?.status === "Undoing"))
       setUndone(true);
+    setDetail((previous) => previous?.id === job.id ? job : previous);
     setDraftJob((previous) => (previous?.id === job.id ? null : previous));
+    const book = job.acceptedBook ?? job.candidates[0];
     setResult((previous) => ({
       ...previous,
-      items: previous.items.map((item) => (item.id === job.id ? job : item)),
+      items: previous.items.map((item) => item.id === job.id
+        ? { ...item, status: job.status, title: book?.title ?? null, author: book?.author ?? null }
+        : item),
     }));
     reload();
   }
@@ -328,41 +342,46 @@ export default function App({ signOut }: AppProps) {
             ) : (
               <div className="review-workspace">
                 <section className="book-list" aria-label="Books">
-                  {result.items.map((job) => {
-                    const book = job.acceptedBook ?? job.candidates[0];
-                    return (
+                  {result.items.map((job) => (
                       <button
                         key={job.id}
                         className={
                           "book-row " +
-                          (selected?.id === job.id ? "selected" : "")
+                          (activeId === job.id ? "selected" : "")
                         }
-                        aria-pressed={selected?.id === job.id}
+                        aria-pressed={activeId === job.id}
                         onClick={() => {
-                          if (selected?.id !== job.id) setDraftJob(null);
+                          if (activeId !== job.id) setDraftJob(null);
                           setSelectedId(job.id);
                         }}
                       >
                         <span className="book-cover" aria-hidden="true">
                           <span>
-                            {(book?.title ?? job.fileName).slice(0, 1)}
+                            {(job.title ?? job.fileName).slice(0, 1)}
                           </span>
                           <small>
                             {job.fileName.split(".").pop()?.toUpperCase()}
                           </small>
                         </span>
                         <span className="book-row-info">
-                          <strong>{book?.title ?? job.fileName}</strong>
-                          <span>{book?.author ?? "Metadata needed"}</span>
+                          <strong>{job.title ?? job.fileName}</strong>
+                          <span>{job.author ?? "Metadata needed"}</span>
                           <small>{job.fileName}</small>
                           <span className={"badge " + job.status}>
                             {labels[job.status]}
                           </span>
                         </span>
                       </button>
-                    );
-                  })}
+                  ))}
                 </section>
+                {selectedRow && detailError && detailError.id === activeId && (
+                  <div className="notice error" role="alert">
+                    {detailError.message} <button onClick={reload}>Try again</button>
+                  </div>
+                )}
+                {selectedRow && !selected && detailError?.id !== activeId && (
+                  <div className="review-panel" role="status">Loading import details…</div>
+                )}
                 {selected && (
                   <ReviewPanel
                     key={selected.id}
@@ -374,7 +393,7 @@ export default function App({ signOut }: AppProps) {
                         return previous?.id === job.id ? null : previous;
                       })
                     }
-                    reviewUnavailable={selectedIsFilteredOut}
+                    reviewUnavailable={!selectedRow}
                   />
                 )}
               </div>

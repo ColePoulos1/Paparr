@@ -3,6 +3,8 @@ using Paparr.API.Domain;
 
 namespace Paparr.API.Models;
 
+public sealed record ImportListItemDto(long Id, string FileName, string Status, string? Title, string? Author);
+
 public sealed record ImportJobDto(long Id, string FileName, string Status, DateTime CreatedAt, DateTime UpdatedAt,
     Guid Revision, int AttemptCount, string? LastError, IReadOnlyList<MetadataCandidateDto> Candidates, BookDto? AcceptedBook,
     IReadOnlyList<ImportEventDto> Events, SourceCleanupDto Cleanup, ImportProfileDto Profile)

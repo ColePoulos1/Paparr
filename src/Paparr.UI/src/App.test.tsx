@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
-import { emptyDuplicates, job, preview, summary } from "./test/fixtures";
+import { emptyDuplicates, importRow, job, preview, summary } from "./test/fixtures";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 afterEach(() => vi.unstubAllGlobals());
@@ -10,11 +10,13 @@ afterEach(() => vi.unstubAllGlobals());
 function mockApi(items = [job]) {
   const fetchMock = vi.fn(async (url: string) => {
     if (url.includes("/duplicates?")) return new Response(JSON.stringify(emptyDuplicates));
+    const detail = items.find((item) => url === `/api/imports/${item.id}`);
+    if (detail) return new Response(JSON.stringify(detail));
     const body = url.includes("/preview/")
       ? preview
       : url.endsWith("/summary")
         ? summary
-        : { items, total: items.length, page: 1, pageSize: 25 };
+        : { items: items.map(importRow), total: items.length, page: 1, pageSize: 25 };
     return new Response(JSON.stringify(body), { status: 200 });
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -80,9 +82,10 @@ describe("Import workspace", () => {
   });
 
   it("preserves an unsaved metadata draft when refresh removes the job", async () => {
-    let items = [job];
+    let items = [importRow(job)];
     const fetchMock = vi.fn(async (url: string) => {
       if (url.includes("/duplicates?")) return new Response(JSON.stringify(emptyDuplicates));
+      if (url === `/api/imports/${job.id}`) return new Response(JSON.stringify(job));
       const body = url.includes("/preview/")
         ? preview
         : url.endsWith("/summary")
@@ -116,6 +119,33 @@ describe("Import workspace", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("requests details only for the selected row and ignores a previous selection's response", async () => {
+    const second = { ...job, id: 2, fileName: "second.epub", candidates: [
+      { ...job.candidates[0], title: "Second book" },
+    ] };
+    let finishFirst!: (response: Response) => void;
+    const firstDetail = new Promise<Response>((resolve) => { finishFirst = resolve; });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/imports/1") return firstDetail;
+      const body = url === "/api/imports/2" ? second
+        : url.includes("/duplicates?") ? emptyDuplicates
+        : url.includes("/preview/") ? preview
+        : url.endsWith("/summary") ? summary
+        : { items: [importRow(job), importRow(second)], total: 2, page: 1, pageSize: 25 };
+      return new Response(JSON.stringify(body));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<App />);
+    const secondRow = await screen.findByRole("button", { name: /Second book/ });
+    expect(fetchMock).toHaveBeenCalledWith("/api/imports/1", expect.anything());
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/imports/2", expect.anything());
+    await user.click(secondRow);
+    expect(await screen.findByRole("heading", { name: "Second book" })).toBeVisible();
+    await act(async () => finishFirst(new Response(JSON.stringify(job))));
+    expect(screen.getByRole("heading", { name: "Second book" })).toBeVisible();
+  });
+
   it("ignores a list response that resolves after its filter request was aborted", async () => {
     let finishStale: (response: Response) => void = () => undefined;
     let listCalls = 0;
@@ -126,12 +156,14 @@ describe("Import workspace", () => {
         return Promise.resolve(new Response(JSON.stringify(summary)));
       if (url.includes("/preview/"))
         return Promise.resolve(new Response(JSON.stringify(preview)));
+      if (url === `/api/imports/${job.id}`)
+        return Promise.resolve(new Response(JSON.stringify(job)));
       listCalls++;
       if (listCalls === 2)
         return new Promise<Response>((resolve) => {
           finishStale = resolve;
         });
-      const items = url.includes("status=Pending") ? [] : [job];
+      const items = url.includes("status=Pending") ? [] : [importRow(job)];
       return Promise.resolve(
         new Response(
           JSON.stringify({ items, total: items.length, page: 1, pageSize: 25 }),
@@ -147,7 +179,7 @@ describe("Import workspace", () => {
     await screen.findByRole("heading", { name: "Queued" });
     finishStale(
       new Response(
-        JSON.stringify({ items: [job], total: 1, page: 1, pageSize: 25 }),
+        JSON.stringify({ items: [importRow(job)], total: 1, page: 1, pageSize: 25 }),
       ),
     );
     await waitFor(() =>

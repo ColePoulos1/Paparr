@@ -1,6 +1,6 @@
 import type {
   BookDto, DuplicateSourceDtoPagedResult, EditionDto, ImportJobDto,
-  ImportJobDtoPagedResult, ImportPreviewDto, LibraryAuditDto, LibraryBookDto,
+  ImportListItemDtoPagedResult, ImportPreviewDto, LibraryAuditDto, LibraryBookDto,
   LibraryPageDto, MetadataCandidateDto, SessionDto,
   WorkerDiagnosticsSnapshot,
 } from "./generated/types.gen";
@@ -10,7 +10,7 @@ export type Candidate = MetadataCandidateDto;
 export type Book = BookDto;
 export type Edition = EditionDto;
 export type ImportJob = ImportJobDto;
-export type Page = ImportJobDtoPagedResult;
+export type Page = ImportListItemDtoPagedResult;
 export type Preview = ImportPreviewDto;
 export type DuplicatePage = DuplicateSourceDtoPagedResult;
 export type Summary = Record<Status, number>;

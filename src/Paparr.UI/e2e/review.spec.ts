@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { emptyDuplicates, job, preview, summary } from "../src/test/fixtures";
+import { emptyDuplicates, importRow, job, preview, summary } from "../src/test/fixtures";
+import type { ImportJob } from "../src/api";
 
 test("review a book, approve it, and find it in history", async ({ page }) => {
   let imported = false;
-  const profiledJob = { ...job, profile: {
+  const profiledJob: ImportJob = { ...job, profile: {
     name: "Research", sourceFolder: "research", collection: "Research", filenameOrder: "AuthorTitle",
   } };
   const profiledPreview = { ...preview, relativePath: "Research/" + preview.relativePath };
@@ -14,7 +15,7 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
   );
   await page.route("**/api/imports**", async (route) => {
     const url = new URL(route.request().url());
-    const completed = {
+    const completed: ImportJob = {
       ...profiledJob,
       status: "Completed",
       acceptedBook: {
@@ -24,6 +25,7 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
         source: "embedded",
         externalId: "",
         importedAt: job.updatedAt,
+        edition: null,
       },
     };
     let body: unknown;
@@ -51,11 +53,13 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
     else if (url.pathname.includes("/accept/")) {
       imported = true;
       body = completed;
+    } else if (url.pathname === `/api/imports/${job.id}`) {
+      body = imported ? completed : profiledJob;
     } else {
       const show =
         url.searchParams.get("status") === "Completed" ? imported : !imported;
       body = {
-        items: show ? [imported ? completed : profiledJob] : [],
+        items: show ? [importRow(imported ? completed : profiledJob)] : [],
         total: show ? 1 : 0,
         page: 1,
         pageSize: 25,
@@ -90,15 +94,17 @@ test("keyboard users can reach search and review controls", async ({
     }),
   );
   await page.route("**/api/imports**", async (route) => {
-    const url = route.request().url();
+    const url = new URL(route.request().url()).pathname;
     await route.fulfill({
-      json: url.includes("/duplicates?")
+      json: url.endsWith("/duplicates")
         ? emptyDuplicates
         : url.includes("/preview/")
           ? preview
           : url.endsWith("/summary")
             ? summary
-            : { items: [job], total: 1, page: 1, pageSize: 25 },
+            : url === `/api/imports/${job.id}`
+              ? job
+              : { items: [importRow(job)], total: 1, page: 1, pageSize: 25 },
     });
   });
   await page.goto("/");

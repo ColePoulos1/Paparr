@@ -86,10 +86,11 @@ try {
     $checks.Add('Clean installation and demo extraction')
 
     $jobs = Invoke-RestMethod "$baseUrl/api/imports?status=AwaitingApproval"
-    $job = $jobs.items | Where-Object { $_.candidates.title -contains 'The Quiet Atlas' } | Select-Object -First 1
+    $row = $jobs.items | Where-Object title -eq 'The Quiet Atlas' | Select-Object -First 1
+    if (!$row) { throw 'The named demo book was not discovered.' }
+    $job = Invoke-RestMethod "$baseUrl/api/imports/$($row.id)"
     Assert-Equal 'Fiction' $job.profile.name 'Captured folder profile'
     Assert-Equal 'fiction' $job.profile.sourceFolder 'Captured watch subfolder'
-    if (!$job) { throw 'The named demo book was not discovered.' }
     $duplicateDirectory = Join-Path $ingest 'copies'
     New-Item -ItemType Directory -Path $duplicateDirectory | Out-Null
     $duplicate = Join-Path $duplicateDirectory 'The Quiet Atlas copy.epub'

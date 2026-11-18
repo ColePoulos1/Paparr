@@ -5,7 +5,6 @@ public sealed class StableFileHashCache(TimeProvider clock, int capacity = 512)
     private static readonly TimeSpan RevalidationInterval = TimeSpan.FromMinutes(5);
     private readonly object gate = new();
     private readonly Dictionary<string, Entry> entries = new(PathComparer);
-    private long nextSequence;
 
     private static StringComparer PathComparer => OperatingSystem.IsWindows()
         ? StringComparer.OrdinalIgnoreCase
@@ -40,12 +39,9 @@ public sealed class StableFileHashCache(TimeProvider clock, int capacity = 512)
 
         lock (gate)
         {
-            entries[fullPath] = new Entry(size, modified, clock.GetUtcNow(), hash, ++nextSequence);
-            while (entries.Count > Math.Max(0, capacity))
-            {
-                var oldest = entries.MinBy(pair => pair.Value.Sequence).Key;
-                entries.Remove(oldest);
-            }
+            // Keeping cached paths prevents a repeated scan from evicting every hash in order.
+            if (entries.Count < capacity)
+                entries.TryAdd(fullPath, new Entry(size, modified, clock.GetUtcNow(), hash));
         }
 
         return hash;
@@ -61,5 +57,5 @@ public sealed class StableFileHashCache(TimeProvider clock, int capacity = 512)
         }
     }
 
-    private sealed record Entry(long Size, DateTime Modified, DateTimeOffset HashedAt, string Hash, long Sequence);
+    private sealed record Entry(long Size, DateTime Modified, DateTimeOffset HashedAt, string Hash);
 }

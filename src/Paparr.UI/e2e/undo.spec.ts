@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { emptyDuplicates, job, preview, summary } from "../src/test/fixtures";
+import { emptyDuplicates, importRow, job, preview, summary } from "../src/test/fixtures";
+import type { ImportJob } from "../src/api";
 
 test("undo previews the two copies and returns the file to review", async ({
   page,
 }) => {
   let undone = false;
   let confirmations = 0;
-  const completed = {
+  const completed: ImportJob = {
     ...job,
     status: "Completed",
     acceptedBook: {
@@ -51,12 +52,13 @@ test("undo previews the two copies and returns the file to review", async ({
       undone = true;
       body = job;
     } else if (url.pathname.includes("/preview/")) body = preview;
+    else if (url.pathname === `/api/imports/${job.id}`) body = undone ? job : completed;
     else {
       const visible =
         url.searchParams.get("status") ===
         (undone ? "AwaitingApproval" : "Completed");
       body = {
-        items: visible ? [undone ? job : completed] : [],
+        items: visible ? [importRow(undone ? job : completed)] : [],
         total: visible ? 1 : 0,
         page: 1,
         pageSize: 25,

@@ -22,7 +22,7 @@ public sealed class ResponseSchemaFilter : ISchemaFilter
             response.Required = new HashSet<string>(response.Properties?.Keys ?? []);
 
         if (schema is not OpenApiSchema responseSchema || responseSchema.Properties is null) return;
-        if (type == typeof(ImportJobDto)) SetEnum(responseSchema, "status", typeof(ImportStatus));
+        if (type == typeof(ImportJobDto) || type == typeof(ImportListItemDto)) SetEnum(responseSchema, "status", typeof(ImportStatus));
         else if (type == typeof(ImportProfileDto)) SetEnum(responseSchema, "filenameOrder", typeof(FilenameOrder));
         else if (type == typeof(SourceCleanupDto)) SetEnum(responseSchema, "status", typeof(SourceCleanupStatus));
         else if (type == typeof(LibraryBookDto)) SetEnum(responseSchema, "integrityStatus", typeof(IntegrityStatus));
