@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0 - 2026-11-18
+
+- Refreshed the import review workspace styling and hierarchy.
+
 ## 0.2.0 — 2026-10-22
 
 - Rebuilt ingestion around persisted claims, leases, revision checks, and bounded retries.

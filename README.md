@@ -67,4 +67,4 @@ Read the [development guide](DEVELOPMENT_GUIDE.md), [architecture](docs/architec
 
 ## Project status
 
-Paparr 0.2.0 is the first release checkpoint of this overhaul. Separate edition/file modeling remains planned. See the [changelog](CHANGELOG.md) for the release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [handoff](docs/handoff.md) for the next work.
+Paparr 0.3.0 refreshes the import review workspace. Separate edition/file modeling remains planned. See the [changelog](CHANGELOG.md) for the release scope, [architecture](docs/architecture.md) for filesystem assumptions, and [handoff](docs/handoff.md) for the next work.
