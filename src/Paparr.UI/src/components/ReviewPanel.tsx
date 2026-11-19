@@ -124,13 +124,13 @@ export default function ReviewPanel({
 
   return (
     <section className="review-panel" aria-label="Import details">
+      <h2>
+        {job.acceptedBook?.title ?? candidate?.title ?? "Give this book a name"}
+      </h2>
       <div className="panel-heading">
         <span className="eyebrow">IMPORT #{job.id}</span>
         <span className={"badge " + job.status}>{labels[job.status]}</span>
       </div>
-      <h2>
-        {job.acceptedBook?.title ?? candidate?.title ?? "Give this book a name"}
-      </h2>
       <p className="muted filename">{job.fileName}</p>
       <FolderProfile profile={job.profile} />
       {job.lastError && job.status !== "Undoing" && <div className="notice error">{job.lastError}</div>}

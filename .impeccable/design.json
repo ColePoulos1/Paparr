@@ -1,0 +1,385 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-19T00:05:05.781Z",
+  "title": "Design System for Paparr",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Brass",
+        "tonalRamp": [
+          "oklch(15% 0.023 74.3)",
+          "oklch(26% 0.045 74.3)",
+          "oklch(38% 0.071 74.3)",
+          "oklch(50% 0.087 74.3)",
+          "oklch(62% 0.093 74.3)",
+          "oklch(74% 0.075 74.3)",
+          "oklch(86% 0.045 74.3)",
+          "oklch(95% 0.019 74.3)"
+        ]
+      },
+      "brass-hover": {
+        "role": "primary",
+        "displayName": "Light Brass",
+        "tonalRamp": [
+          "oklch(15% 0.021 75.5)",
+          "oklch(26% 0.041 75.5)",
+          "oklch(38% 0.065 75.5)",
+          "oklch(50% 0.080 75.5)",
+          "oklch(62% 0.085 75.5)",
+          "oklch(74% 0.069 75.5)",
+          "oklch(86% 0.041 75.5)",
+          "oklch(95% 0.017 75.5)"
+        ]
+      },
+      "desk": {
+        "role": "neutral",
+        "displayName": "Espresso Desk",
+        "tonalRamp": [
+          "oklch(15% 0.003 51.3)",
+          "oklch(26% 0.007 51.3)",
+          "oklch(38% 0.011 51.3)",
+          "oklch(50% 0.013 51.3)",
+          "oklch(62% 0.014 51.3)",
+          "oklch(74% 0.011 51.3)",
+          "oklch(86% 0.007 51.3)",
+          "oklch(95% 0.003 51.3)"
+        ]
+      },
+      "walnut": {
+        "role": "neutral",
+        "displayName": "Walnut",
+        "tonalRamp": [
+          "oklch(15% 0.006 51.6)",
+          "oklch(26% 0.011 51.6)",
+          "oklch(38% 0.017 51.6)",
+          "oklch(50% 0.021 51.6)",
+          "oklch(62% 0.023 51.6)",
+          "oklch(74% 0.018 51.6)",
+          "oklch(86% 0.011 51.6)",
+          "oklch(95% 0.005 51.6)"
+        ]
+      },
+      "spine": {
+        "role": "neutral",
+        "displayName": "Book Spine",
+        "tonalRamp": [
+          "oklch(15% 0.008 51.3)",
+          "oklch(26% 0.016 51.3)",
+          "oklch(38% 0.026 51.3)",
+          "oklch(50% 0.032 51.3)",
+          "oklch(62% 0.034 51.3)",
+          "oklch(74% 0.027 51.3)",
+          "oklch(86% 0.016 51.3)",
+          "oklch(95% 0.007 51.3)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Parchment",
+        "tonalRamp": [
+          "oklch(15% 0.010 80.0)",
+          "oklch(26% 0.019 80.0)",
+          "oklch(38% 0.029 80.0)",
+          "oklch(50% 0.036 80.0)",
+          "oklch(62% 0.039 80.0)",
+          "oklch(74% 0.031 80.0)",
+          "oklch(86% 0.019 80.0)",
+          "oklch(95% 0.008 80.0)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Parchment",
+        "tonalRamp": [
+          "oklch(15% 0.011 69.3)",
+          "oklch(26% 0.022 69.3)",
+          "oklch(38% 0.035 69.3)",
+          "oklch(50% 0.043 69.3)",
+          "oklch(62% 0.046 69.3)",
+          "oklch(74% 0.037 69.3)",
+          "oklch(86% 0.022 69.3)",
+          "oklch(95% 0.009 69.3)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Warm Rule",
+        "tonalRamp": [
+          "oklch(15% 0.011 52.9)",
+          "oklch(26% 0.021 52.9)",
+          "oklch(38% 0.033 52.9)",
+          "oklch(50% 0.041 52.9)",
+          "oklch(62% 0.044 52.9)",
+          "oklch(74% 0.035 52.9)",
+          "oklch(86% 0.021 52.9)",
+          "oklch(95% 0.009 52.9)"
+        ]
+      },
+      "review-background": {
+        "role": "secondary",
+        "displayName": "Amber State Fill",
+        "tonalRamp": [
+          "oklch(15% 0.015 52.3)",
+          "oklch(26% 0.029 52.3)",
+          "oklch(38% 0.046 52.3)",
+          "oklch(50% 0.057 52.3)",
+          "oklch(62% 0.060 52.3)",
+          "oklch(74% 0.049 52.3)",
+          "oklch(86% 0.029 52.3)",
+          "oklch(95% 0.012 52.3)"
+        ]
+      },
+      "review-text": {
+        "role": "secondary",
+        "displayName": "Amber State Text",
+        "tonalRamp": [
+          "oklch(15% 0.022 72.7)",
+          "oklch(26% 0.043 72.7)",
+          "oklch(38% 0.068 72.7)",
+          "oklch(50% 0.084 72.7)",
+          "oklch(62% 0.089 72.7)",
+          "oklch(74% 0.072 72.7)",
+          "oklch(86% 0.043 72.7)",
+          "oklch(95% 0.018 72.7)"
+        ]
+      },
+      "imported-background": {
+        "role": "secondary",
+        "displayName": "Green State Fill",
+        "tonalRamp": [
+          "oklch(15% 0.008 159.0)",
+          "oklch(26% 0.016 159.0)",
+          "oklch(38% 0.026 159.0)",
+          "oklch(50% 0.032 159.0)",
+          "oklch(62% 0.034 159.0)",
+          "oklch(74% 0.027 159.0)",
+          "oklch(86% 0.016 159.0)",
+          "oklch(95% 0.007 159.0)"
+        ]
+      },
+      "imported-text": {
+        "role": "secondary",
+        "displayName": "Green State Text",
+        "tonalRamp": [
+          "oklch(15% 0.012 147.1)",
+          "oklch(26% 0.022 147.1)",
+          "oklch(38% 0.035 147.1)",
+          "oklch(50% 0.043 147.1)",
+          "oklch(62% 0.046 147.1)",
+          "oklch(74% 0.037 147.1)",
+          "oklch(86% 0.022 147.1)",
+          "oklch(95% 0.009 147.1)"
+        ]
+      },
+      "attention-background": {
+        "role": "secondary",
+        "displayName": "Clay State Fill",
+        "tonalRamp": [
+          "oklch(15% 0.013 34.5)",
+          "oklch(26% 0.025 34.5)",
+          "oklch(38% 0.039 34.5)",
+          "oklch(50% 0.049 34.5)",
+          "oklch(62% 0.052 34.5)",
+          "oklch(74% 0.042 34.5)",
+          "oklch(86% 0.025 34.5)",
+          "oklch(95% 0.010 34.5)"
+        ]
+      },
+      "attention-text": {
+        "role": "secondary",
+        "displayName": "Clay State Text",
+        "tonalRamp": [
+          "oklch(15% 0.015 36.5)",
+          "oklch(26% 0.028 36.5)",
+          "oklch(38% 0.045 36.5)",
+          "oklch(50% 0.055 36.5)",
+          "oklch(62% 0.059 36.5)",
+          "oklch(74% 0.048 36.5)",
+          "oklch(86% 0.028 36.5)",
+          "oklch(95% 0.012 36.5)"
+        ]
+      },
+      "working-background": {
+        "role": "secondary",
+        "displayName": "Slate State Fill",
+        "tonalRamp": [
+          "oklch(15% 0.008 256.2)",
+          "oklch(26% 0.015 256.2)",
+          "oklch(38% 0.023 256.2)",
+          "oklch(50% 0.029 256.2)",
+          "oklch(62% 0.031 256.2)",
+          "oklch(74% 0.025 256.2)",
+          "oklch(86% 0.015 256.2)",
+          "oklch(95% 0.006 256.2)"
+        ]
+      },
+      "working-text": {
+        "role": "secondary",
+        "displayName": "Slate State Text",
+        "tonalRamp": [
+          "oklch(15% 0.009 254.6)",
+          "oklch(26% 0.018 254.6)",
+          "oklch(38% 0.028 254.6)",
+          "oklch(50% 0.035 254.6)",
+          "oklch(62% 0.037 254.6)",
+          "oklch(74% 0.030 254.6)",
+          "oklch(86% 0.018 254.6)",
+          "oklch(95% 0.007 254.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "page-title": {
+        "displayName": "Page Title",
+        "purpose": "Names the current import queue. Fluid between 34 and 54px."
+      },
+      "record-title": {
+        "displayName": "Record Title",
+        "purpose": "Names the selected record. Fluid between 26 and 36px."
+      },
+      "book-title": {
+        "displayName": "Book Title",
+        "purpose": "Identifies a book within the queue."
+      },
+      "count": {
+        "displayName": "Count",
+        "purpose": "Aligns tabular totals inside the status strip."
+      },
+      "metadata": {
+        "displayName": "Metadata",
+        "purpose": "Shows evidence and supporting record details."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Labels common desk actions."
+      },
+      "section-title": {
+        "displayName": "Section Title",
+        "purpose": "Labels record groups such as metadata and import history."
+      },
+      "destination-path": {
+        "displayName": "Destination Path",
+        "purpose": "Keeps the proposed filesystem path readable and selectable."
+      }
+    },
+    "shadows": [
+      {
+        "name": "book-mark-spine",
+        "value": "inset 3px 0 #2c2019",
+        "purpose": "Defines the spine edge of the brand mark."
+      },
+      {
+        "name": "book-cover",
+        "value": "inset 3px 0 #0004, 2px 3px 6px #0005",
+        "purpose": "Distinguishes the spine and silhouette of a small queue thumbnail."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stacked-desk",
+        "value": "800px"
+      },
+      {
+        "name": "compact-sidebar",
+        "value": "1100px"
+      },
+      {
+        "name": "wide-desk-padding",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Approval Button",
+      "kind": "button",
+      "refersTo": "button-approval",
+      "description": "Confirms the import after the destination preview.",
+      "html": "<button type=\"button\" class=\"ds-approval\">Approve &amp; import</button>",
+      "css": ".ds-approval { border-radius: 4px; padding: 10px 17px; font: 600 12px \"DM Sans\", system-ui, sans-serif; white-space: nowrap; cursor: pointer; background: #d8ac70; color: #1b1410; border: 1px solid #d8ac70; width: 100%; padding: 13px; } .ds-approval:hover { background: #efc78f; } .ds-approval:focus-visible { outline: 2px solid #d8ac70; outline-offset: 2px; } .ds-approval:disabled { opacity: .55; cursor: default; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Handles utility actions such as refreshing the review desk.",
+      "html": "<button type=\"button\" class=\"ds-secondary\">Refresh</button>",
+      "css": ".ds-secondary { border-radius: 4px; padding: 10px 17px; font: 600 12px \"DM Sans\", system-ui, sans-serif; white-space: nowrap; cursor: pointer; background: #2c2019; color: #ecdcc2; border: 1px solid #654b3b; } .ds-secondary:hover { background: #433025; } .ds-secondary:focus-visible { outline: 2px solid #d8ac70; outline-offset: 2px; } .ds-secondary:disabled { opacity: .55; cursor: default; }"
+    },
+    {
+      "name": "Import Search",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Searches the register by title, author, or filename.",
+      "html": "<label class=\"ds-search\"><svg aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\"><circle cx=\"6.5\" cy=\"6.5\" r=\"4\"/><path d=\"m9.5 9.5 3 3\"/></svg><input aria-label=\"Search imports\" placeholder=\"Search by title, author, or filename\"></label>",
+      "css": ".ds-search { display: flex; align-items: center; gap: 10px; background: #2c2019; color: #ecdcc2; border: 1px solid #654b3b; border-radius: 4px; padding: 9px 14px; max-width: 480px; } .ds-search svg { flex-shrink: 0; } .ds-search input { border: 0; outline: none; background: transparent; min-width: 0; width: 100%; color: inherit; font: 400 12px \"DM Sans\", system-ui, sans-serif; } .ds-search input::placeholder { color: #c2aa90; opacity: 1; } .ds-search:focus-within { outline: 2px solid #d8ac70; outline-offset: 2px; }"
+    },
+    {
+      "name": "Import Status Tags",
+      "kind": "chip",
+      "refersTo": "status-tag",
+      "description": "Pairs each state with a text label and its own fill and text colors.",
+      "html": "<span class=\"ds-tag ds-review\">Needs review</span> <span class=\"ds-tag ds-working\">Saving to library</span> <span class=\"ds-tag ds-imported\">Imported</span> <span class=\"ds-tag ds-attention\">Needs attention</span>",
+      "css": ".ds-tag { display: inline-block; border-radius: 4px; padding: 4px 7px; background: #433025; color: #ecdcc2; font: 600 9px \"DM Sans\", system-ui, sans-serif; } .ds-review { background: #512f19; color: #f0c38a; } .ds-working { background: #2b3645; color: #cadcf3; } .ds-imported { background: #2b4034; color: #c3dfc5; } .ds-attention { background: #492820; color: #ffcec0; }"
+    },
+    {
+      "name": "Current Import Filter",
+      "kind": "nav",
+      "refersTo": "navigation-current",
+      "description": "Keeps the current status filter visible in the sidebar.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Import status\"><button class=\"ds-filter\" aria-current=\"page\"><span class=\"ds-dot\" aria-hidden=\"true\"></span>Needs review<span class=\"ds-count\">1</span></button><button class=\"ds-filter\"><span class=\"ds-dot ds-queued\" aria-hidden=\"true\"></span>Queued<span class=\"ds-count\">2</span></button></nav>",
+      "css": ".ds-nav { padding: 8px; background: #2c2019; } .ds-filter { display: flex; width: 100%; align-items: center; gap: 10px; padding: 13px 12px; border: 0; border-radius: 3px; background: transparent; color: #ecdcc2; text-align: left; font: 400 13px \"DM Sans\", system-ui, sans-serif; cursor: pointer; } .ds-filter:hover, .ds-filter[aria-current] { background: #433025; } .ds-filter[aria-current] { color: #d8ac70; font-weight: 700; } .ds-filter:focus-visible { outline: 2px solid #d8ac70; outline-offset: 2px; } .ds-dot { width: 7px; height: 7px; border-radius: 50%; background: #b48a4e; } .ds-queued { background: #a7b1a8; } .ds-count { margin-left: auto; min-width: 22px; text-align: center; border-radius: 4px; padding: 3px; font-size: 11px; font-variant-numeric: tabular-nums; background: #433025; }"
+    },
+    {
+      "name": "Selected Queue Record",
+      "kind": "custom",
+      "refersTo": "book-row-selected",
+      "description": "Marks the record open in the adjacent detail pane.",
+      "html": "<button type=\"button\" class=\"ds-record\" aria-pressed=\"true\"><span class=\"ds-cover\" aria-hidden=\"true\"><span>T</span><small>EPUB</small></span><span class=\"ds-record-text\"><strong>The Time Machine</strong><span>H. G. Wells</span><small>The Time Machine.epub</small><span class=\"ds-record-state\">Needs review</span></span></button>",
+      "css": ".ds-record { display: flex; position: relative; align-items: flex-start; gap: 16px; width: 100%; padding: 22px 18px; border: 0; border-bottom: 1px solid #654b3b; background: #1b1410; color: #ecdcc2; font: 400 12px \"DM Sans\", system-ui, sans-serif; text-align: left; cursor: pointer; } .ds-record:hover, .ds-record[aria-pressed=\"true\"] { background: #433025; } .ds-record[aria-pressed=\"true\"]::before { content: \"\"; position: absolute; inset: 16px auto 16px 0; width: 3px; border-radius: 0 2px 2px 0; background: #d8ac70; } .ds-record:focus-visible { outline: 2px solid #d8ac70; outline-offset: 2px; outline-offset: -3px; } .ds-cover { display: flex; flex: 0 0 44px; height: 62px; flex-direction: column; justify-content: center; align-items: center; gap: 10px; border-radius: 2px 4px 4px 2px; background: #614037; box-shadow: inset 3px 0 #0004, 2px 3px 6px #0005; font: 24px Georgia, serif; } .ds-cover small { font: 400 7px \"DM Sans\", system-ui, sans-serif; letter-spacing: 1px; } .ds-record-text { display: flex; flex-direction: column; gap: 5px; min-width: 0; color: #c2aa90; } .ds-record-text strong { color: #ecdcc2; font: 18px/1.2 Georgia, serif; overflow-wrap: anywhere; } .ds-record-text small { font-size: 10px; } .ds-record-state { align-self: flex-start; margin-top: 5px; padding: 4px 7px; border-radius: 4px; background: #512f19; color: #f0c38a; font-size: 9px; font-weight: 600; }"
+    },
+    {
+      "name": "Metadata Choice",
+      "kind": "card",
+      "refersTo": "candidate-selected",
+      "description": "Keeps the source and evidence visible alongside a native radio option.",
+      "html": "<label class=\"ds-candidate\"><input type=\"radio\" name=\"metadata\" checked><span class=\"ds-evidence\"><span class=\"ds-candidate-top\"><strong>The Time Machine</strong><small>embedded</small></span><span>H. G. Wells</span><span>Read from the ebook metadata.</span></span></label>",
+      "css": ".ds-candidate { display: flex; gap: 10px; padding: 14px; border: 1px solid #654b3b; border-radius: 4px; background: #2c2019; color: #ecdcc2; font: 400 12px/1.6 \"DM Sans\", system-ui, sans-serif; cursor: pointer; color-scheme: dark; } .ds-candidate:has(:checked) { background: #433025; border-color: #d8ac70; } .ds-candidate input { align-self: flex-start; margin: 3px 0 0; accent-color: #d8ac70; } .ds-candidate input:focus-visible { outline: 2px solid #d8ac70; outline-offset: 2px; } .ds-evidence { display: grid; flex: 1; min-width: 0; gap: 5px; color: #c2aa90; } .ds-candidate-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; } .ds-candidate-top strong { color: #ecdcc2; font-size: 14px; overflow-wrap: anywhere; } .ds-candidate-top small { padding: 3px 5px; border: 1px solid #654b3b; border-radius: 3px; background: #1b1410; font-size: 9px; }"
+    },
+    {
+      "name": "Destination Preview",
+      "kind": "card",
+      "refersTo": "destination-preview",
+      "description": "Shows the full proposed destination directly above approval.",
+      "html": "<section class=\"ds-destination\" aria-label=\"Destination preview\"><strong>DESTINATION PREVIEW</strong><code>Research/H. G. Wells/The Time Machine/The Time Machine - H. G. Wells [abc123].epub</code><small>The original file will be retained.</small></section>",
+      "css": ".ds-destination { display: flex; flex-direction: column; gap: 10px; padding: 17px; border: 1px solid #654b3b; border-radius: 4px; background: #1b1410; color: #ecdcc2; font-family: \"DM Sans\", system-ui, sans-serif; } .ds-destination strong { color: #c2aa90; font-size: 9px; letter-spacing: 1.5px; } .ds-destination code { font: 12px/1.8 monospace; overflow-wrap: anywhere; } .ds-destination small { color: #c2aa90; font-size: 10px; line-height: 1.6; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Accession Ledger",
+    "overview": "Paparr’s imports and review desk is the first implementation of Accession Ledger. Walnut and espresso surfaces recall a library desk. Parchment type and thin rules make filenames, metadata evidence, and destinations easy to compare. Serif book titles and clothbound initials bring in the library reference while keeping the register compact.\n\nThe imports sidebar shares this treatment while the review desk is open. The sign-in, library health, and worker status views retain their existing styling. The review desk stylesheet and shared base styles are the implementation sources. `@src/Paparr.UI/src/accession-ledger.css` and `@src/Paparr.UI/src/index.css`",
+    "keyCharacteristics": [
+      "Espresso and walnut planes divided by thin rules",
+      "Parchment text, serif titles, and compact sans-serif controls",
+      "Brass selection markers and approval controls",
+      "Small clothbound book initials in the queue"
+    ],
+    "rules": [
+      {
+        "name": "The Brass Rule",
+        "body": "Use solid brass for the main action and narrow brass details for selection and focus.",
+        "section": "colors"
+      }
+    ],
+    "dos": [
+      "Do give book titles the serif hierarchy and use sans-serif for metadata and controls.",
+      "Do keep status words and a visible keyboard outline alongside color cues.",
+      "Do set destination paths beside the action that publishes to them."
+    ],
+    "donts": [
+      "Don't add raised shadows to panels or navigation.",
+      "Don't use the brass fill for routine secondary controls."
+    ]
+  }
+}

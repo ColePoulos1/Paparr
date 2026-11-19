@@ -150,7 +150,7 @@ export default function App({ signOut }: AppProps) {
   }
 
   return (
-    <div className="workspace">
+    <div className={view === "imports" ? "workspace accession-ledger" : "workspace"}>
       <aside className="sidebar">
         <a className="brand" href="/">
           <span className="brand-mark">p</span>
@@ -238,14 +238,7 @@ export default function App({ signOut }: AppProps) {
         ) : (
           <>
             <header className="page-header">
-              <div>
-                <div className="eyebrow">LIBRARY INTAKE</div>
-                <h1>{labels[filter.status]}</h1>
-                <p>
-                  Good metadata makes a great library. Give every book the right
-                  home.
-                </p>
-              </div>
+              <h1>{labels[filter.status]}</h1>
               <button
                 className="button secondary"
                 onClick={reload}
@@ -258,7 +251,6 @@ export default function App({ signOut }: AppProps) {
               <div>
                 <span>Ready for review</span>
                 <strong>{summary?.AwaitingApproval ?? "—"}</strong>
-                <small>Waiting for your decision</small>
               </div>
               <div>
                 <span>In progress</span>
@@ -267,12 +259,10 @@ export default function App({ signOut }: AppProps) {
                     ? summary.Pending + summary.Processing + summary.Publishing + (summary.Undoing ?? 0)
                     : "—"}
                 </strong>
-                <small>From discovery to library</small>
               </div>
               <div>
                 <span>Safely imported</span>
                 <strong>{summary?.Completed ?? "—"}</strong>
-                <small>Verified library copies</small>
               </div>
             </div>
             <form
@@ -289,7 +279,10 @@ export default function App({ signOut }: AppProps) {
             >
               <label className="search-field">
                 <span className="sr-only">Search imports</span>
-                <span aria-hidden="true">⌕</span>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <circle cx="6.5" cy="6.5" r="4" />
+                  <path d="m9.5 9.5 3 3" />
+                </svg>
                 <input
                   key={filter.search}
                   name="search"

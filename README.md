@@ -4,7 +4,7 @@ A self-hosted ebook intake workbench. Drop EPUB or PDF files into a watch folder
 
 Paparr keeps an import history and verifies file content before publication. Originals are retained by default. Interrupted publication can resume from persisted job state.
 
-![Paparr review desk](docs/images/review-desktop.png)
+![Paparr’s Accession Ledger homepage showing the import queue and metadata review](docs/images/review-desktop.png)
 
 ## What works
 
