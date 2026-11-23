@@ -1,3 +1,8 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Heading } from "@astryxdesign/core/Heading";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { request, setCsrfToken } from "../api";
 import type { AuthSession } from "../api";
@@ -72,7 +77,7 @@ export default function AuthGate({ children }: AuthGateProps) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (loginPending) return;
+    if (loginPending || password.length === 0) return;
     setLoginPending(true);
     setLoginError("");
     try {
@@ -91,60 +96,62 @@ export default function AuthGate({ children }: AuthGateProps) {
     }
   }
 
-  if (loadError) {
-    return (
-      <main className="auth-shell">
-        <section className="auth-card" aria-labelledby="auth-title">
-          <div className="eyebrow">PAPARR ACCESS</div>
-          <h1 id="auth-title">Could not check your session</h1>
-          {sessionExpired && <div className="notice auth-expired" role="status">Your session expired. Sign in again to continue.</div>}
-          <div className="notice error" role="alert">{loadError}</div>
-          <button className="button primary" onClick={() => setLoadAttempt((value) => value + 1)}>Retry</button>
-        </section>
-      </main>
-    );
-  }
-
-  if (!session) {
-    return <main className="auth-shell"><div className="auth-loading" role="status">Checking your session…</div></main>;
-  }
-
-  if (!session.enabled || session.authenticated) {
+  if (!loadError && session && (!session.enabled || session.authenticated)) {
     return (
       <>
-        {logoutError && <div className="notice error auth-logout-error" role="alert">{logoutError}</div>}
+        {logoutError && <Banner className="auth-logout-error" status="error" title={logoutError} role="alert" />}
         {children({ signOut: session.enabled ? signOut : undefined })}
       </>
     );
   }
 
+  if (!loadError && !session) {
+    return <main className="auth-shell"><p role="status">Checking your session…</p></main>;
+  }
+
   return (
     <main className="auth-shell">
-      <section className="auth-card" aria-labelledby="auth-title">
-        <div className="auth-mark" aria-hidden="true">p</div>
-        <div className="eyebrow">YOUR PRIVATE LIBRARY</div>
-        <h1 id="auth-title">Sign in to Paparr</h1>
-        <p className="muted">Enter your library password to continue.</p>
-        {sessionExpired && <div className="notice auth-expired" role="status">Your session expired. Sign in again to continue.</div>}
-        {loginError && <div className="notice error" role="alert">{loginError}</div>}
-        <form className="auth-form" onSubmit={(event) => void submit(event)}>
-          <label htmlFor="paparr-password">Password</label>
-          <input
-            id="paparr-password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            maxLength={512}
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            disabled={loginPending}
-          />
-          <button className="button primary" type="submit" disabled={loginPending || password.length === 0}>
-            {loginPending ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-      </section>
+      <Card className="auth-card" padding={8} role="region" aria-labelledby="auth-title">
+        <img className="auth-mark" src="/paparr.svg" width="48" height="48" alt="" />
+        <Heading level={1} id="auth-title">
+          {loadError ? "Could not check your session" : "Sign in to Paparr"}
+        </Heading>
+        {sessionExpired && (
+          <Banner status="warning" role="status" title="Your session expired. Sign in again to continue." />
+        )}
+        {loadError ? (
+          <>
+            <Banner status="error" role="alert" title={loadError} />
+            <Button label="Retry" onClick={() => setLoadAttempt((value) => value + 1)} />
+          </>
+        ) : (
+          <>
+            <p>Enter your library password to continue.</p>
+            {loginError && <Banner status="error" role="alert" title={loginError} />}
+            <form className="auth-form" onSubmit={submit}>
+              <TextInput
+                label="Password"
+                type="password"
+                htmlName="password"
+                autoComplete="current-password"
+                {...{ maxLength: 512, required: true }}
+                isRequired
+                size="lg"
+                value={password}
+                onChange={setPassword}
+                isDisabled={loginPending}
+              />
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                label={loginPending ? "Signing in…" : "Sign in"}
+                isDisabled={loginPending || password.length === 0}
+              />
+            </form>
+          </>
+        )}
+      </Card>
     </main>
   );
 }

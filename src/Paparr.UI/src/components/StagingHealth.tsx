@@ -1,3 +1,7 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Heading } from "@astryxdesign/core/Heading";
 import { useEffect, useState } from "react";
 import { request } from "../api";
 import type { StagingStatusDto } from "../generated/types.gen";
@@ -38,18 +42,13 @@ export default function StagingHealth() {
     };
   }, [refresh]);
   return (
-    <section className="staging-health" aria-label="Temporary file maintenance">
-      <h2>Temporary file maintenance</h2>
+    <Card padding={5} role="region" className="staging-health" aria-label="Temporary file maintenance">
+      <Heading level={2}>Temporary file maintenance</Heading>
       {error && (
-        <p className="notice error" role="alert">
-          {error} {snapshot && "Counts are from the last successful refresh."}{" "}
-          <button
-            className="text-button"
-            onClick={() => setRefresh((value) => value + 1)}
-          >
-            Retry temporary file status
-          </button>
-        </p>
+        <Banner status="error" role="alert" title={error}
+          description={snapshot ? "Counts are from the last successful refresh." : undefined}
+          endContent={<Button label="Retry temporary file status" onClick={() => setRefresh((value) => value + 1)} />}
+        />
       )}
       {!snapshot && !error && (
         <p role="status">Loading temporary file status…</p>
@@ -75,10 +74,8 @@ export default function StagingHealth() {
             </div>
           </dl>
           {snapshot.retained > 0 && (
-            <p className="worker-error">
-              Some temporary files need attention. Check the server logs before
-              removing anything.
-            </p>
+            <Banner status="warning" title="Some temporary files need attention."
+              description="Check the server logs before removing anything." />
           )}
         </>
       )}
@@ -88,6 +85,6 @@ export default function StagingHealth() {
         remain untouched. Settled attempts can include files that were already
         absent.
       </p>
-    </section>
+    </Card>
   );
 }

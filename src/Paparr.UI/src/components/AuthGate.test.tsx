@@ -49,13 +49,13 @@ it("keeps the sign-in form available after a rejected password", async () => {
   const user = userEvent.setup();
   render(<AuthGate>{() => <div>App ready</div>}</AuthGate>);
 
-  await user.type(await screen.findByLabelText("Password"), "wrong password");
+  await user.type(await screen.findByLabelText(/^Password\b/), "wrong password");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(screen.getByRole("button", { name: "Signing in…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Signing in…" })).toHaveAttribute("aria-disabled", "true");
   finishLogin(response({ detail: "Password was not accepted" }, 401));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("Password was not accepted");
-  expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Sign in" })).not.toHaveAttribute("aria-disabled", "true");
 });
 
 it("sends CSRF on login and sends an expired session back to sign-in without retrying", async () => {
@@ -84,7 +84,7 @@ it("sends CSRF on login and sends an expired session back to sign-in without ret
     </AuthGate>,
   );
 
-  const password = await screen.findByLabelText("Password");
+  const password = await screen.findByLabelText(/^Password\b/);
   expect(password).toHaveAttribute("autocomplete", "current-password");
   expect(password).toHaveAttribute("maxlength", "512");
   await user.type(password, "library secret");
@@ -95,8 +95,8 @@ it("sends CSRF on login and sends an expired session back to sign-in without ret
 
   await user.click(screen.getByRole("button", { name: "Load books" }));
   expect(await screen.findByText(/Your session expired/)).toBeVisible();
-  expect(screen.getByLabelText("Password")).toBeVisible();
-  await user.type(screen.getByLabelText("Password"), "library secret");
+  expect(screen.getByLabelText(/^Password\b/)).toBeVisible();
+  await user.type(screen.getByLabelText(/^Password\b/), "library secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("button", { name: "Load books" })).toBeVisible();
   expect(protectedCalls).toBe(1);
@@ -136,7 +136,7 @@ it("ignores a protected 401 from a request started before a refreshed sign-in", 
 
   await user.click(await screen.findByRole("button", { name: "Load books" }));
   window.dispatchEvent(new CustomEvent("paparr:session-expired"));
-  const password = await screen.findByLabelText("Password");
+  const password = await screen.findByLabelText(/^Password\b/);
   await user.type(password, "library secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("button", { name: "Load books" })).toBeVisible();
@@ -181,8 +181,8 @@ it("shows logout errors and uses rotated CSRF tokens for later auth requests", a
   expect(new Headers(logoutCalls[0]?.[1]?.headers).get("X-CSRF-TOKEN")).toBe("csrf-authenticated");
 
   await user.click(screen.getByRole("button", { name: "Sign out" }));
-  expect(await screen.findByLabelText("Password")).toBeVisible();
-  await user.type(screen.getByLabelText("Password"), "new secret");
+  expect(await screen.findByLabelText(/^Password\b/)).toBeVisible();
+  await user.type(screen.getByLabelText(/^Password\b/), "new secret");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(await screen.findByRole("button", { name: "Sign out" })).toBeVisible();
 

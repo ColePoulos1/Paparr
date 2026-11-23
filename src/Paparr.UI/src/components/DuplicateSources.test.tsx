@@ -85,7 +85,7 @@ it("loads bounded pages and hides the previous page while loading the next", asy
     .setup()
     .click(navigation.getByRole("button", { name: "Next" }));
   expect(screen.queryByText("inbox/atlas.epub")).not.toBeInTheDocument();
-  expect(navigation.getByRole("button", { name: "Next" })).toBeDisabled();
+  expect(navigation.getByRole("button", { name: "Next" })).toHaveAttribute("aria-disabled", "true");
   expect(fetchMock).toHaveBeenLastCalledWith(
     "/api/imports/1/duplicates?page=2&pageSize=25",
     expect.anything(),
@@ -101,8 +101,8 @@ it("loads bounded pages and hides the previous page while loading the next", asy
     ),
   );
   expect(await screen.findByText("other/atlas.epub")).toBeVisible();
-  expect(navigation.getByRole("button", { name: "Next" })).toBeDisabled();
-  expect(navigation.getByRole("button", { name: "Previous" })).toBeEnabled();
+  expect(navigation.getByRole("button", { name: "Next" })).toHaveAttribute("aria-disabled", "true");
+  expect(navigation.getByRole("button", { name: "Previous" })).not.toHaveAttribute("aria-disabled", "true");
 });
 
 it("aborts old requests and ignores their results when the selected import changes", async () => {

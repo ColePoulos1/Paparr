@@ -1,7 +1,5 @@
 # Product
 
-<!-- impeccable:product-schema 1 -->
-
 ## Platform
 
 web
@@ -23,11 +21,10 @@ The owner drops files into a watch folder, reviews metadata candidates and desti
 - Every import currently requires review. Match scores describe title and author similarity, not probabilities.
 - Publication verifies file content, preserves originals by default, and supports recovery after interruption.
 - Paparr manages its own library directory and does not write to a Calibre database.
-- The current interface was AI-generated; a styling overhaul is desired.
 
 ## Brand Commitments
 
-The product is named Paparr. Its visual direction is dark academia, with deep browns and library references. Keep the workspace clean and allow a few playful details.
+Paparr uses the Astryx Matcha theme and an open-book mark. Give filenames, metadata evidence and recovery actions room to be read. See [the interface design](DESIGN.md).
 
 ## Evidence on Hand
 

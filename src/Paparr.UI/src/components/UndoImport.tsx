@@ -1,3 +1,7 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
+import { Button } from "@astryxdesign/core/Button";
 import { useEffect, useRef, useState } from "react";
 import { request } from "../api";
 import type { ImportJob } from "../api";
@@ -26,7 +30,8 @@ export default function UndoImport({
   const mutation = useRef<AbortController | null>(null);
   const preview = snapshot?.revision === job.revision ? snapshot.data : null;
   const expanded = open || job.status === "Undoing";
-  const operationError = preview?.error ?? (job.status === "Undoing" ? job.lastError : null);
+  const operationError =
+    preview?.error ?? (job.status === "Undoing" ? job.lastError : null);
 
   useEffect(() => () => mutation.current?.abort(), []);
   useEffect(() => {
@@ -93,31 +98,29 @@ export default function UndoImport({
   return (
     <section className="undo-import" aria-label="Undo import">
       {!expanded ? (
-        <button
-          className="text-button"
-          disabled={disabled}
+        <Button
+          variant="ghost"
+          size="sm"
+          label="Undo import…"
+          isDisabled={disabled}
           onClick={() => setOpen(true)}
-        >
-          Undo import…
-        </button>
+        />
       ) : (
         <>
-          <h3>
+          <Heading level={3}>
             {job.status === "Undoing"
               ? "Returning to review"
               : "Return this import to review?"}
-          </h3>
+          </Heading>
           <p>
             Paparr will remove the verified library copy and keep the original
             in your watch folder. You can choose metadata and approve it again.
           </p>
           {loading && <p role="status">Checking both copies…</p>}
-          {error && (
-            <p className="notice error" role="alert">
-              {error}
-            </p>
+          {error && <Banner status="error" role="alert" title={error} />}
+          {operationError && (
+            <Banner status="error" role="alert" title={operationError} />
           )}
-        {operationError && <p className="notice error" role="alert">{operationError}</p>}
           {preview && (
             <>
               <dl>
@@ -135,52 +138,50 @@ export default function UndoImport({
                 </div>
               </dl>
               {!preview.canUndo && preview.reason && (
-                <p className="notice" role="status">
-                  {preview.reason}
-                </p>
+                <Banner status="warning" role="status" title={preview.reason} />
               )}
               {job.status === "Undoing" && (
-                <p className="muted">
+                <Text color="secondary">
                   This request is saved. Background work can resume it after a
                   restart. When it finishes, find this file under Needs review.
-                </p>
+                </Text>
               )}
             </>
           )}
           <div className="undo-actions">
             {job.status === "Completed" && (
-              <button
-                className="button undo-confirm"
-                disabled={disabled || loading || busy || !preview?.canUndo}
+              <Button
+                variant="destructive"
+                size="sm"
+                label={busy ? "Returning to review…" : "Undo import"}
+                isDisabled={disabled || loading || busy || !preview?.canUndo}
                 onClick={() => void undo(false)}
-              >
-                {busy ? "Returning to review…" : "Undo import"}
-              </button>
+              />
             )}
             {job.status === "Undoing" && preview?.canRetry && (
-              <button
-                className="button secondary"
-                disabled={disabled || loading || busy}
+              <Button
+                variant="secondary"
+                size="sm"
+                label={busy ? "Retrying…" : "Retry undo"}
+                isDisabled={disabled || loading || busy}
                 onClick={() => void undo(true)}
-              >
-                {busy ? "Retrying…" : "Retry undo"}
-              </button>
+              />
             )}
-            <button
-              className="text-button"
-              disabled={busy || loading}
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Refresh undo status"
+              isDisabled={busy || loading}
               onClick={() => setRefresh((value) => value + 1)}
-            >
-              Refresh undo status
-            </button>
+            />
             {job.status === "Completed" && (
-              <button
-                className="text-button"
-                disabled={busy}
+              <Button
+                variant="ghost"
+                size="sm"
+                label="Cancel"
+                isDisabled={busy}
                 onClick={() => setOpen(false)}
-              >
-                Cancel
-              </button>
+              />
             )}
           </div>
         </>

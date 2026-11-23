@@ -1,0 +1,15 @@
+.operations-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+}
+
+.operations-header > div { min-width: 0; }
+
+.operations-header p {
+  margin-top: var(--spacing-2);
+  max-inline-size: 65ch;
+  color: var(--color-text-secondary);
+}

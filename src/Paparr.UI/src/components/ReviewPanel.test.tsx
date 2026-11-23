@@ -108,7 +108,7 @@ it("prevents duplicate approval while a request is in flight", async () => {
   render(<ReviewPanel job={job} onChange={onChange} />);
   await screen.findByText(preview.relativePath);
   await user.click(screen.getByRole("button", { name: "Approve & import" }));
-  expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Saving…" })).toHaveAttribute("aria-disabled", "true");
   expect(
     fetchMock.mock.calls.filter(([url]) => url.includes("/accept/")),
   ).toHaveLength(1);
@@ -141,7 +141,7 @@ it("keeps the review available after a failed approval", async () => {
   );
   expect(
     screen.getByRole("button", { name: "Approve & import" }),
-  ).toBeEnabled();
+  ).not.toHaveAttribute("aria-disabled", "true");
 });
 
 it("saves a manual choice with the entered fields", async () => {
@@ -200,7 +200,7 @@ it("cannot approve without a successful destination preview", async () => {
   );
   expect(
     screen.getByRole("button", { name: "Approve & import" }),
-  ).toBeDisabled();
+  ).toHaveAttribute("aria-disabled", "true");
 });
 
 it("does not let an older preview authorize the newly selected candidate", async () => {
@@ -231,7 +231,7 @@ it("does not let an older preview authorize the newly selected candidate", async
   await waitFor(() =>
     expect(
       screen.getByRole("button", { name: "Approve & import" }),
-    ).toBeDisabled(),
+    ).toHaveAttribute("aria-disabled", "true"),
   );
   finishSecond(
     new Response(
@@ -241,7 +241,7 @@ it("does not let an older preview authorize the newly selected candidate", async
   expect(await screen.findByText("Different destination")).toBeVisible();
   expect(
     screen.getByRole("button", { name: "Approve & import" }),
-  ).toBeEnabled();
+  ).not.toHaveAttribute("aria-disabled", "true");
 });
 
 it("retries source cleanup when the completed import says it can be retried", async () => {

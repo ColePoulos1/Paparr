@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { within, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import LibraryHealth from "./LibraryHealth";
@@ -95,12 +95,12 @@ it("starts one scan, disables duplicate submission, and displays polled completi
   await waitFor(() =>
     expect(
       screen.getByRole("button", { name: "Start integrity scan" }),
-    ).toBeEnabled(),
+    ).not.toHaveAttribute("aria-disabled", "true"),
   );
   await user.click(
     screen.getByRole("button", { name: "Start integrity scan" }),
   );
-  expect(screen.getByRole("button", { name: "Starting scan…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Starting scan…" })).toHaveAttribute("aria-disabled", "true");
   await user.click(screen.getByRole("button", { name: "Starting scan…" }));
   expect(
     fetchMock.mock.calls.filter(
@@ -147,7 +147,7 @@ it("filters by integrity status and requests the selected page data", async () =
   await user.click(screen.getByRole("button", { name: "Missing, 0 books" }));
 
   expect(
-    screen.getByText("Missing", { selector: ".library-status" }),
+    within(screen.getByRole("table")).getByText("Missing"),
   ).toBeVisible();
   expect(screen.getByText("File not found")).toBeVisible();
   expect(fetchMock).toHaveBeenCalledWith(

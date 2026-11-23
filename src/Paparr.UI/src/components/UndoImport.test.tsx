@@ -66,7 +66,7 @@ it("explains ineligible originals without offering an enabled undo", async () =>
   ).toBeVisible();
   expect(
     screen.getByRole("button", { name: "Undo import" }),
-  ).toBeDisabled();
+  ).toHaveAttribute("aria-disabled", "true");
 });
 
 it("keeps the same operation id when a network failure leaves the result uncertain", async () => {
@@ -167,7 +167,7 @@ it("cancels outdated previews and never enables a decision from the previous rev
   });
   expect(
     screen.getByRole("button", { name: "Undo import" }),
-  ).toBeDisabled();
+  ).toHaveAttribute("aria-disabled", "true");
 });
 
 it("blocks repeated confirmation and cancels the request when leaving", async () => {
@@ -186,7 +186,7 @@ it("blocks repeated confirmation and cancels the request when leaving", async ()
   );
   expect(
     screen.getByRole("button", { name: "Returning to review…" }),
-  ).toBeDisabled();
+  ).toHaveAttribute("aria-disabled", "true");
   const posts = fetchMock.mock.calls.filter(
     (call) => call[1].method === "POST",
   );

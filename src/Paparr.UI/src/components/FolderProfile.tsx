@@ -1,3 +1,5 @@
+import { Heading } from "@astryxdesign/core/Heading";
+import { MetadataList, MetadataListItem } from "@astryxdesign/core/MetadataList";
 import type { ImportProfileDto } from "../generated/types.gen";
 import "./FolderProfile.css";
 
@@ -9,18 +11,12 @@ export default function FolderProfile({
   if (!profile?.name) return null;
   return (
     <section className="folder-profile" aria-label="Folder profile">
-      <span className="tiny-label">FOLDER PROFILE</span>
-      <strong>{profile.name}</strong>
-      <dl>
-        <div>
-          <dt>Watch subfolder</dt>
-          <dd>{profile.sourceFolder}</dd>
-        </div>
-        <div>
-          <dt>Library collection</dt>
-          <dd>{profile.collection ?? "Default library layout"}</dd>
-        </div>
-      </dl>
+      <Heading level={3}>Folder profile</Heading>
+      <MetadataList columns="single">
+        <MetadataListItem label="Profile">{profile.name}</MetadataListItem>
+        <MetadataListItem label="Watch subfolder">{profile.sourceFolder}</MetadataListItem>
+        <MetadataListItem label="Library collection">{profile.collection ?? "Default library layout"}</MetadataListItem>
+      </MetadataList>
       <p>
         Filename fallback:{" "}
         {profile.filenameOrder === "AuthorTitle"

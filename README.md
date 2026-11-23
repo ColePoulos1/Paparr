@@ -4,7 +4,7 @@ A self-hosted ebook intake workbench. Drop EPUB or PDF files into a watch folder
 
 Paparr keeps an import history and verifies file content before publication. Originals are retained by default. Interrupted publication can resume from persisted job state.
 
-![Paparr’s Accession Ledger homepage showing the import queue and metadata review](docs/images/review-desktop.png)
+![Paparr showing the import queue, metadata choices and proposed library destination](docs/images/review-desktop.png)
 
 ## What works
 
@@ -49,6 +49,8 @@ See the [deployment guide](DEPLOYMENT_GUIDE.md) for configuration, permissions, 
 ## Development
 
 ASP.NET Core 10, PostgreSQL 18, React, and TypeScript.
+
+The frontend uses Astryx Core with the Matcha theme. See the [design guide](DESIGN.md) for component and layout conventions.
 
 ```sh
 dotnet tool restore

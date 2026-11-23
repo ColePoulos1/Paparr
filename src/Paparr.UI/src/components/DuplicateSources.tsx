@@ -1,3 +1,7 @@
+import { Banner } from "@astryxdesign/core/Banner";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Text } from "@astryxdesign/core/Text";
+import { Button } from "@astryxdesign/core/Button";
 import { useEffect, useState } from "react";
 import { request } from "../api";
 import type { DuplicatePage } from "../api";
@@ -54,35 +58,40 @@ function SourceHistory({ jobId }: { jobId: number }) {
 
   return (
     <section className="duplicate-sources" aria-label="Duplicate files">
-      <div className="section-heading">
-        <h3>Duplicate files</h3>
+      <div className="review-section-heading">
+        <Heading level={3}>Duplicate files</Heading>
         {current && <small>{current.total} observed</small>}
       </div>
       {error && (
-        <div className="notice error" role="alert">
-          <p>
-            {error} {current ? "Showing the last loaded observations." : ""}
-          </p>
-          <button
-            className="text-button"
-            onClick={() => setRefresh((value) => value + 1)}
-          >
-            Retry duplicate files
-          </button>
-        </div>
+        <Banner
+          status="error"
+          role="alert"
+          title={error}
+          description={
+            current ? "Showing the last loaded observations." : undefined
+          }
+          endContent={
+            <Button
+              variant="ghost"
+              size="sm"
+              label="Retry duplicate files"
+              onClick={() => setRefresh((value) => value + 1)}
+            />
+          }
+        />
       )}
       {!current && !error && (
-        <p className="muted">Checking duplicate history…</p>
+        <Text color="secondary">Checking duplicate history…</Text>
       )}
       {current?.total === 0 && (
-        <p className="muted">No duplicate files observed.</p>
+        <Text color="secondary">No duplicate files observed.</Text>
       )}
       {current && current.total > 0 && (
         <>
-          <p className="muted">
+          <Text color="secondary">
             These files had the same content when discovered and were left
             untouched. Their locations may have changed since then.
-          </p>
+          </Text>
           <ul>
             {current.items.map((source) => (
               <li key={source.id}>
@@ -100,24 +109,24 @@ function SourceHistory({ jobId }: { jobId: number }) {
       )}
       {(page > 1 || totalPages > 1) && (
         <nav className="duplicate-pagination" aria-label="Duplicate pages">
-          <button
-            className="button secondary"
-            disabled={page === 1}
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Previous"
+            isDisabled={page === 1}
             onClick={() => changePage(page - 1)}
-          >
-            Previous
-          </button>
+          />
           <span>
             Page {page}
             {current ? ` of ${totalPages}` : ""}
           </span>
-          <button
-            className="button secondary"
-            disabled={!current || page >= totalPages}
+          <Button
+            variant="secondary"
+            size="sm"
+            label="Next"
+            isDisabled={!current || page >= totalPages}
             onClick={() => changePage(page + 1)}
-          >
-            Next
-          </button>
+          />
         </nav>
       )}
     </section>

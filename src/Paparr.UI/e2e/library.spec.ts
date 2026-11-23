@@ -69,7 +69,11 @@ test("library health is deep linkable and scans show actionable results", async 
     }
   });
   await page.goto("/?view=library");
+  const navToggle = page.getByRole("button", { name: "Open navigation" });
+  if (await navToggle.isVisible()) await navToggle.click();
   await expect(page.getByRole("button", { name: "Needs review 4", exact: true })).toBeVisible();
+  const drawer = page.getByRole("dialog");
+  if (await drawer.isVisible()) await drawer.getByRole("button", { name: "Close navigation" }).click();
   await expect(
     page.getByRole("heading", { name: "Library health" }),
   ).toBeVisible();

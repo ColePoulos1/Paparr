@@ -88,7 +88,7 @@ it("shows a changed-file error in the library without navigating or downloading 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "The library file changed.",
   );
-  expect(screen.getByRole("button", { name: "Download Atlas" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Download Atlas" })).not.toHaveAttribute("aria-disabled", "true");
   expect(click).not.toHaveBeenCalled();
 });
 
@@ -109,7 +109,7 @@ it("prevents repeated requests while verifying and aborts when leaving the view"
   const view = render(<BookDownload id={3} title="Atlas" />);
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "Download Atlas" }));
-  expect(screen.getByRole("button", { name: "Download Atlas" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Download Atlas" })).toHaveAttribute("aria-disabled", "true");
   await user.click(screen.getByRole("button", { name: "Download Atlas" }));
   expect(fetchMock).toHaveBeenCalledTimes(1);
   const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;

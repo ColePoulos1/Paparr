@@ -1,77 +1,63 @@
 .worker-health {
-  max-width: 1150px;
-  margin: 0 auto;
+  display: grid;
+  gap: var(--spacing-5);
+  min-width: 0;
 }
-.worker-summary,
-.worker-stage {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 1.5rem;
-  background: white;
-}
-.worker-summary {
-  margin-bottom: 1.5rem;
-  border-left: 5px solid #497761;
-}
-.worker-summary.delayed,
-.worker-stage.failed {
-  border-left: 5px solid #b87936;
-}
-.worker-summary.disabled {
-  border-left-color: var(--muted);
-}
+
+.worker-health > button { justify-self: start; }
+
 .worker-state {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--spacing-2);
 }
-.worker-state h2,
-.worker-state h3 {
-  margin: 0;
+
+.worker-summary, .worker-stage {
+  display: grid;
+  gap: var(--spacing-4);
 }
-.worker-state > span {
-  color: var(--muted);
-  font-size: 0.85rem;
+
+.worker-summary > p, .worker-footnote {
+  max-inline-size: 75ch;
+  color: var(--color-text-secondary);
 }
+
+.worker-footnote {
+  font-size: var(--font-size-sm);
+}
+
 .worker-stages {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--spacing-5);
 }
+
+.worker-stage {
+  align-content: start;
+  padding-block: var(--spacing-4);
+  border-block-start: 1px solid var(--color-border);
+}
+
 .worker-health dl {
-  margin: 1.25rem 0 0;
   display: grid;
-  gap: 0.75rem;
+  margin: 0;
+  gap: var(--spacing-2);
 }
+
 .worker-health dl > div {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  gap: var(--spacing-2);
 }
+
 .worker-health dt {
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: var(--color-text-secondary);
 }
+
 .worker-health dd {
   margin: 0;
-  font-size: 0.85rem;
   overflow-wrap: anywhere;
-}
-.worker-error {
-  color: #865420;
-  font-size: 0.9rem;
-  margin-bottom: 0;
-}
-.worker-footnote {
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.6;
-  margin: 1.5rem 0;
-}
-@media (max-width: 800px) {
-  .worker-stages {
-    grid-template-columns: 1fr;
-  }
+  font-variant-numeric: tabular-nums;
 }

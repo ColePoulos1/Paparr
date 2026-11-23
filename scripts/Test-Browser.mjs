@@ -18,7 +18,7 @@ try {
   page.on("pageerror", error => errors.push(error.message));
   await page.goto(url);
   await expect(page.getByRole("heading", { name: "Sign in to Paparr" })).toBeVisible();
-  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel(/^Password/).fill(password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
   await page.getByRole("button", { name: /The Quiet Atlas/ }).click();
@@ -28,14 +28,14 @@ try {
   await page.getByRole("button", { name: /Untitled.epub/ }).click();
   await expect(page.getByText(/No complete metadata was found/)).toBeVisible();
   await page.getByRole("button", { name: "Edit details", exact: true }).click();
-  await page.getByLabel("Title", { exact: true }).fill("A Reader's Notebook");
-  await page.getByLabel("Author", { exact: true }).fill("Demo Author");
+  await page.getByRole("textbox", { name: "Title", exact: true }).fill("A Reader's Notebook");
+  await page.getByRole("textbox", { name: "Author", exact: true }).fill("Demo Author");
   await page.getByLabel("ISBN (optional)", { exact: true }).fill("0-306-40615-2");
   await page.getByLabel("Publisher (optional)", { exact: true }).fill("Éditions & Compagnie");
   await page.getByLabel("Publication year (optional)", { exact: true }).fill("2020");
   await page.getByLabel("Language tag (optional)", { exact: true }).fill("fr");
   await page.getByRole("button", { name: "Save metadata choice", exact: true }).click();
-  await expect(page.getByText("DESTINATION PREVIEW", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Destination preview", exact: true })).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: join(outputDirectory, "review-desktop.png"), fullPage: true });
   const approvalResponse = page.waitForResponse(response =>
@@ -49,12 +49,11 @@ try {
   expect(accepted.acceptedBook.edition.isbn13).toBe("9780306406157");
   expect(accepted.acceptedBook.edition.publisher).toBe("Éditions & Compagnie");
   await page.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
-  const notebook = page.getByRole("button", { name: /A Reader's Notebook/ });
-  await expect(notebook).toContainText("Imported");
-  await notebook.click();
-  await expect(page.getByRole("region", { name: "Import details" }))
-    .toContainText("A Reader's Notebook");
-  await expect(page.getByText("IN YOUR LIBRARY", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /A Reader's Notebook/ }).click();
+  const notebook = page.getByRole("region", { name: "Import details" });
+  await expect(notebook).toContainText("A Reader's Notebook");
+  await expect(notebook.getByText("Imported", { exact: true })).toBeVisible();
+  await expect(notebook.getByRole("heading", { name: "In your library", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Library health", exact: true }).click();
   await page.getByRole("button", { name: "Start integrity scan", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Scan complete" })).toBeVisible({ timeout: 45000 });
@@ -93,14 +92,16 @@ try {
   for (const surface of [page, mobile]) {
     expect(await surface.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   }
-  await mobile.getByRole("button", { name: "Worker status", exact: true }).click();
+  await mobile.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await mobile.getByRole("dialog").getByRole("button", { name: "Worker status", exact: true }).click();
   await expect(mobile.getByRole("region", { name: "Worker status", exact: true }).getByRole("article"))
     .toHaveCount(4);
   await mobile.getByRole("button", { name: "Show temporary file status" }).click();
   await expect(mobile.getByRole("region", { name: "Temporary file maintenance" }).getByText("Settled attempts", { exact: true })).toBeVisible();
   expect(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
   await mobile.screenshot({ path: join(outputDirectory, "worker-mobile.png"), fullPage: true });
-  await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Imported/ }).click();
+  await mobile.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await mobile.getByRole("dialog").getByRole("button", { name: /^Imported/ }).click();
   await mobile.getByRole("button", { name: /The Quiet Atlas/ }).click();
   await expect(mobile.getByRole("region", { name: "Folder profile", exact: true })).toContainText("Fiction");
   await expect(mobile.getByRole("region", { name: "Duplicate files", exact: true }))
@@ -127,7 +128,8 @@ try {
   const republishedFile = await mobileContext.request.get(url + `/api/library/${republished.acceptedBook.id}/file`);
   expect(republishedFile.status()).toBe(200);
   expect(createHash("sha256").update(await republishedFile.body()).digest("hex").toUpperCase()).toBe(expectedHash);
-  await mobile.getByRole("navigation", { name: "Import status" }).getByRole("button", { name: /^Needs attention/ }).click();
+  await mobile.getByRole("button", { name: "Open navigation", exact: true }).click();
+  await mobile.getByRole("dialog").getByRole("button", { name: /^Needs attention/ }).click();
   await mobile.getByRole("button", { name: /Incomplete download.pdf/ }).click();
   await expect(mobile.getByRole("region", { name: "Import details" }))
     .toContainText("The ebook could not be read.");

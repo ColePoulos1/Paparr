@@ -57,12 +57,16 @@ test("worker status is deep linkable and identifies a delayed discovery stage", 
   await expect(
     page.getByRole("heading", { name: "Taking longer than expected" }),
   ).toBeVisible();
+  const navToggle = page.getByRole("button", { name: "Open navigation" });
+  if (await navToggle.isVisible()) await navToggle.click();
   await expect(
     page.getByRole("button", { name: "Worker status", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("button", { name: "Queued 2", exact: true }),
   ).toBeVisible();
+  const drawer = page.getByRole("dialog");
+  if (await drawer.isVisible()) await drawer.getByRole("button", { name: "Close navigation" }).click();
   await expect(
     page.getByRole("article", { name: "File discovery" }),
   ).toContainText("Running");

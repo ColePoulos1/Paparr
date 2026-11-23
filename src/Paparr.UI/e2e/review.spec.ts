@@ -2,6 +2,29 @@ import { test, expect } from "@playwright/test";
 import { emptyDuplicates, importRow, job, preview, summary } from "../src/test/fixtures";
 import type { ImportJob } from "../src/api";
 
+test("a full mobile queue links directly to the selected import", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "Wide screens show the books and their details side by side.");
+  const items = Array.from({ length: 25 }, (_, index) => ({
+    ...importRow(job), id: index + 1, title: `Book ${index + 1}`,
+  }));
+  await page.route("**/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const body = path.endsWith("/session") ? { enabled: false, authenticated: false, csrfToken: null }
+      : path.endsWith("/summary") ? { ...summary, AwaitingApproval: 25 }
+      : path.endsWith("/duplicates") ? emptyDuplicates
+      : path.includes("/preview/") ? preview
+      : path === "/api/imports" ? { items, total: items.length, page: 1, pageSize: 25 }
+      : job;
+    return route.fulfill({ json: body });
+  });
+  await page.goto("/");
+  const books = page.getByRole("region", { name: "Books" });
+  await expect(books.getByRole("button")).toHaveCount(25);
+  await books.getByRole("link", { name: "View details" }).click();
+  await expect(page.getByRole("heading", { name: "The Time Machine", exact: true })).toBeInViewport();
+  await expect(page.locator("#selected-import")).toBeFocused();
+});
+
 test("review a book, approve it, and find it in history", async ({ page }) => {
   let imported = false;
   const profiledJob: ImportJob = { ...job, profile: {
@@ -80,8 +103,10 @@ test("review a book, approve it, and find it in history", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Your review desk is clear" }),
   ).toBeVisible();
+  const navToggle = page.getByRole("button", { name: "Open navigation" });
+  if (await navToggle.isVisible()) await navToggle.click();
   await page.getByRole("button", { name: "Imported 25" }).click();
-  await expect(page.getByText("IN YOUR LIBRARY")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "In your library", exact: true })).toBeVisible();
   await expect(page).toHaveURL(/status=Completed/);
 });
 

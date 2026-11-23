@@ -5,6 +5,47 @@ import ReviewPanel from "./components/ReviewPanel";
 import LibraryHealth from "./components/LibraryHealth";
 import WorkerHealth from "./components/WorkerHealth";
 
+import { AppShell } from "@astryxdesign/core/AppShell";
+import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Icon } from "@astryxdesign/core/Icon";
+import { Item } from "@astryxdesign/core/Item";
+import { Link } from "@astryxdesign/core/Link";
+import { Pagination } from "@astryxdesign/core/Pagination";
+import { SideNav, SideNavItem, SideNavSection } from "@astryxdesign/core/SideNav";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { TopNav, TopNavHeading } from "@astryxdesign/core/TopNav";
+import {
+  Activity, ArchiveRestore, BookCheck, BookOpen, CircleAlert, Clock,
+  FolderInput, Inbox, Library, ListChecks, LogOut, RefreshCw, ScanText, Search,
+} from "lucide-react";
+import "./workspace.css";
+
+const statusIcons = {
+  AwaitingApproval: ListChecks, Pending: Clock, Processing: ScanText, Publishing: FolderInput,
+  Undoing: ArchiveRestore, Failed: CircleAlert, Completed: BookCheck,
+} satisfies Record<Status, typeof Inbox>;
+
+function ImportSearch({ initial, onSearch }: { initial: string; onSearch: (query: string) => void }) {
+  const [query, setQuery] = useState(initial);
+  return (
+    <form className="import-search" role="search" onSubmit={(event) => {
+      event.preventDefault();
+      onSearch(query);
+    }}>
+      <TextInput label="Search imports" isLabelHidden startIcon={Search}
+        value={query} onChange={setQuery} {...{ maxLength: 200 }} width="100%"
+        placeholder="Search by title, author, or filename" />
+      <Button type="submit" label="Search" variant="secondary" />
+    </form>
+  );
+}
+
 function locationView(): "imports" | "library" | "worker" {
   const view = new URLSearchParams(window.location.search).get("view");
   return view === "library" || view === "worker" ? view : "imports";
@@ -149,267 +190,142 @@ export default function App({ signOut }: AppProps) {
     reload();
   }
 
+  function openView(next: "library" | "worker") {
+    setDraftJob(null);
+    setSelectedId(null);
+    setView(next);
+    window.history.pushState(null, "", "?view=" + next);
+  }
+
+  const empty = result.items.length === 0 && !selected;
   return (
-    <div className={view === "imports" ? "workspace accession-ledger" : "workspace"}>
-      <aside className="sidebar">
-        <a className="brand" href="/">
-          <span className="brand-mark">p</span>
-          <span>
-            Paparr<small>A place for every book.</small>
-          </span>
-        </a>
-        <div className="nav-caption">YOUR WORKSPACE</div>
-        <nav aria-label="Import status">
-          {statuses.map((status) => (
-            <button
-              key={status}
-              className={
-                view === "imports" && filter.status === status
-                  ? "nav-item active"
-                  : "nav-item"
-              }
-              aria-current={
-                view === "imports" && filter.status === status ? "page" : undefined
-              }
-              onClick={() => navigate({ ...filter, status, page: 1 })}
-            >
-              <span className={"status-dot " + status} />
-              <span>{labels[status]}</span>
-              <span className="nav-count">{summary?.[status] ?? "—"}</span>
-            </button>
-          ))}
-          <button
-            className={view === "library" ? "nav-item active" : "nav-item"}
-            aria-current={view === "library" ? "page" : undefined}
-            onClick={() => {
-              setDraftJob(null);
-              setSelectedId(null);
-              setView("library");
-              window.history.pushState(null, "", "?view=library");
-            }}
-          >
-            <span className="status-dot Completed" />
-            <span>Library health</span>
-          </button>
-          <button
-            className={view === "worker" ? "nav-item active" : "nav-item"}
-            aria-current={view === "worker" ? "page" : undefined}
-            onClick={() => {
-              setDraftJob(null);
-              setSelectedId(null);
-              setView("worker");
-              window.history.pushState(null, "", "?view=worker");
-            }}
-          >
-            <span className="status-dot Processing" />
-            <span>Worker status</span>
-          </button>
-        </nav>
-        {signOut && (
-          <button
-            className="nav-item auth-signout"
-            disabled={signingOut}
+    <AppShell variant="wash" height="auto" contentPadding={0}
+      topNav={
+        <TopNav label="Paparr"
+          heading={<TopNavHeading heading="Paparr" headingHref="/"
+            logo={<img className="paparr-mark" src="/paparr.svg" alt="" />} />}
+          endContent={signOut && <Button label={signingOut ? "Signing out…" : "Sign out"}
+            icon={<Icon icon={LogOut} />} variant="ghost" isDisabled={signingOut}
             onClick={async () => {
               setSigningOut(true);
               try { await signOut(); }
               finally { setSigningOut(false); }
-            }}
-          >
-            <span aria-hidden="true">↪</span>
-            <span>{signingOut ? "Signing out…" : "Sign out"}</span>
-          </button>
-        )}
-        <div className="sidebar-note">
-          <span className="tiny-label">THOUGHTFULLY ORGANIZED</span>
-          <p>
-            Your files. Your library.
-            <br />
-            Every import has a history.
-          </p>
-        </div>
-        <span className="docs-link">Paparr · Self-hosted ebook intake</span>
-      </aside>
-
-      <main className="main">
-        {view === "library" ? (
-          <LibraryHealth />
-        ) : view === "worker" ? (
-          <WorkerHealth />
-        ) : (
+            }} />}
+        />
+      }
+      sideNav={
+        <SideNav aria-label="Import status">
+          <SideNavSection title="Imports">
+            {statuses.map((status) => <SideNavItem key={status}
+              label={labels[status]} icon={statusIcons[status]}
+              isSelected={view === "imports" && filter.status === status}
+              endContent={<span className="queue-count">{summary?.[status] ?? "—"}</span>}
+              onClick={() => navigate({ ...filter, status, page: 1 })} />)}
+          </SideNavSection>
+          <SideNavSection title="Maintenance">
+            <SideNavItem label="Library health" icon={Library} isSelected={view === "library"}
+              onClick={() => openView("library")} />
+            <SideNavItem label="Worker status" icon={Activity} isSelected={view === "worker"}
+              onClick={() => openView("worker")} />
+          </SideNavSection>
+        </SideNav>
+      }
+    >
+      <div className="workspace-content">
+        {view === "library" ? <LibraryHealth /> : view === "worker" ? <WorkerHealth /> : (
           <>
-            <header className="page-header">
-              <h1>{labels[filter.status]}</h1>
-              <button
-                className="button secondary"
-                onClick={reload}
-                disabled={loading}
-              >
-                {loading ? "Refreshing…" : "Refresh"}
-              </button>
+            <header className="queue-header">
+              <Heading level={1}>{labels[filter.status]}</Heading>
+              <Button label={loading ? "Refreshing…" : "Refresh"} variant="secondary"
+                icon={<Icon icon={RefreshCw} />} onClick={reload} isDisabled={loading} />
             </header>
-            <div className="stats" aria-label="Import overview">
-              <div>
-                <span>Ready for review</span>
-                <strong>{summary?.AwaitingApproval ?? "—"}</strong>
-              </div>
-              <div>
-                <span>In progress</span>
-                <strong>
-                  {summary
-                    ? summary.Pending + summary.Processing + summary.Publishing + (summary.Undoing ?? 0)
-                    : "—"}
-                </strong>
-              </div>
-              <div>
-                <span>Safely imported</span>
-                <strong>{summary?.Completed ?? "—"}</strong>
-              </div>
-            </div>
-            <form
-              className="toolbar"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const data = new FormData(event.currentTarget);
-                navigate({
-                  ...filter,
-                  search: String(data.get("search") ?? ""),
-                  page: 1,
-                });
-              }}
-            >
-              <label className="search-field">
-                <span className="sr-only">Search imports</span>
-                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <circle cx="6.5" cy="6.5" r="4" />
-                  <path d="m9.5 9.5 3 3" />
-                </svg>
-                <input
-                  key={filter.search}
-                  name="search"
-                  defaultValue={filter.search}
-                  placeholder="Search by title, author, or filename"
-                  maxLength={200}
-                />
-              </label>
-              <button className="button secondary" type="submit">
-                Search
-              </button>
-              <span className="result-count">
-                {result.total} {result.total === 1 ? "book" : "books"}
-              </span>
-            </form>
-            {error && (
-              <div className="notice error" role="alert">
-                {error} <button onClick={reload}>Try again</button>
-              </div>
-            )}
-            {undone && <div className="notice" role="status">The import returned to review. Your original file is retained.{" "}
-              <button className="text-button" onClick={() => navigate({ status: "AwaitingApproval", search: "", page: 1 })}>Review again</button>
-            </div>}
-            {loading && result.items.length === 0 && !selected ? (
-              <div className="empty" role="status">
-                Loading your imports…
-              </div>
-            ) : result.items.length === 0 && !selected ? (
-              <div className="empty">
-                <div className="empty-book" aria-hidden="true">
-                  ▤
-                </div>
-                <h2>
-                  {filter.search
-                    ? "No matching books"
-                    : filter.status === "AwaitingApproval"
-                      ? "Your review desk is clear"
-                      : "Nothing here yet"}
-                </h2>
-                <p>
-                  {filter.search
-                    ? "Try another title, author, or filename."
-                    : "Add EPUB or PDF files to your watch folder. New imports will appear here."}
-                </p>
-              </div>
-            ) : (
-              <div className="review-workspace">
-                <section className="book-list" aria-label="Books">
-                  {result.items.map((job) => (
-                      <button
-                        key={job.id}
-                        className={
-                          "book-row " +
-                          (activeId === job.id ? "selected" : "")
-                        }
-                        aria-pressed={activeId === job.id}
-                        onClick={() => {
-                          if (activeId !== job.id) setDraftJob(null);
-                          setSelectedId(job.id);
-                        }}
-                      >
-                        <span className="book-cover" aria-hidden="true">
-                          <span>
-                            {(job.title ?? job.fileName).slice(0, 1)}
-                          </span>
-                          <small>
-                            {job.fileName.split(".").pop()?.toUpperCase()}
-                          </small>
-                        </span>
-                        <span className="book-row-info">
-                          <strong>{job.title ?? job.fileName}</strong>
-                          <span>{job.author ?? "Metadata needed"}</span>
-                          <small>{job.fileName}</small>
-                          <span className={"badge " + job.status}>
-                            {labels[job.status]}
-                          </span>
-                        </span>
-                      </button>
-                  ))}
-                </section>
-                {selectedRow && detailError && detailError.id === activeId && (
-                  <div className="notice error" role="alert">
-                    {detailError.message} <button onClick={reload}>Try again</button>
-                  </div>
-                )}
-                {selectedRow && !selected && detailError?.id !== activeId && (
-                  <div className="review-panel" role="status">Loading import details…</div>
-                )}
-                {selected && (
-                  <ReviewPanel
-                    key={selected.id}
-                    job={selected}
-                    onChange={changed}
-                    onDraftChange={(job, dirty) =>
-                      setDraftJob((previous) => {
-                        if (dirty) return job;
-                        return previous?.id === job.id ? null : previous;
-                      })
-                    }
-                    reviewUnavailable={!selectedRow}
+
+            <dl className="import-overview" aria-label="Import overview">
+              <div><dt>Ready for review</dt><dd>{summary?.AwaitingApproval ?? "—"}</dd></div>
+              <div><dt>In progress</dt><dd>{summary
+                ? summary.Pending + summary.Processing + summary.Publishing + (summary.Undoing ?? 0)
+                : "—"}</dd></div>
+              <div><dt>Imported</dt><dd>{summary?.Completed ?? "—"}</dd></div>
+            </dl>
+
+            <ImportSearch key={filter.search} initial={filter.search}
+              onSearch={(search) => navigate({ ...filter, search, page: 1 })} />
+            {error && <Banner status="error" title={error} role="alert"
+              endContent={<Button size="sm" label="Try again" variant="secondary" onClick={reload} />} />}
+            {undone && <Banner status="success" role="status"
+              title="The import returned to review. Your original file is retained."
+              endContent={<Button size="sm" label="Review again" variant="secondary"
+                onClick={() => navigate({ status: "AwaitingApproval", search: "", page: 1 })} />} />}
+            {empty ? !error && (
+              <Card padding={4}>
+                {loading ? <Text as="p" role="status">Loading your imports…</Text> : (
+                  <EmptyState headingLevel={2} icon={<Icon icon={filter.search ? Search : Inbox} size="lg" />}
+                    title={filter.search ? "No matching books"
+                      : filter.status === "AwaitingApproval" ? "Your review desk is clear" : "Nothing here yet"}
+                    description={filter.search ? "Try another title, author, or filename."
+                      : filter.status === "AwaitingApproval" || filter.status === "Pending"
+                        ? "Add EPUB or PDF files to your watch folder to start an import."
+                        : "Books will appear here when an import reaches this stage."}
+                    actions={filter.search && <Button label="Clear search" variant="secondary"
+                      onClick={() => navigate({ ...filter, search: "", page: 1 })} />}
                   />
                 )}
+              </Card>
+            ) : (
+              <div className="intake-panels">
+                <section className="queue-list" aria-labelledby="queue-list-heading">
+                  <div className="queue-list-header">
+                    <Heading level={2} id="queue-list-heading">Books</Heading>
+                    <Badge label={result.total} />
+                    {result.items.length > 1 && <Link className="queue-detail-link" href="#selected-import">
+                      View details
+                    </Link>}
+                  </div>
+                  <div className="queue-rows">
+                  {result.items.map((job) => (
+                    <Item key={job.id} density="spacious"
+                      label={job.title ?? job.fileName}
+                      description={<>
+                        <span className="queue-author">{job.author ?? "Metadata needed"}</span>
+                        {job.title && <span className="queue-filename">{job.fileName}</span>}
+                      </>}
+                      startContent={<span className="queue-format" aria-hidden="true">
+                        <Icon icon={BookOpen} size="md" />
+                        {(job.fileName.split(".").pop() ?? "").toUpperCase()}
+                      </span>}
+                      isSelected={activeId === job.id}
+                      onClick={() => {
+                        if (activeId !== job.id) setDraftJob(null);
+                        setSelectedId(job.id);
+                      }}
+                    />
+                  ))}
+                  {result.items.length === 0 && <Text as="p" type="supporting">No books in this queue.</Text>}
+                  </div>
+                </section>
+                <div className="intake-detail" id="selected-import" tabIndex={-1}>
+                  {selectedRow && detailError && detailError.id === activeId && (
+                    <Banner status="error" role="alert" title={detailError.message}
+                      endContent={<Button label="Try again" size="sm" variant="secondary" onClick={reload} />} />
+                  )}
+                  {selectedRow && !selected && detailError?.id !== activeId && (
+                    <Card><Text as="p" role="status">Loading import details…</Text></Card>
+                  )}
+                  {selected && <ReviewPanel key={selected.id} job={selected} onChange={changed}
+                    onDraftChange={(job, dirty) =>
+                      setDraftJob((previous) => dirty ? job : previous?.id === job.id ? null : previous)}
+                    reviewUnavailable={!selectedRow} />}
+                </div>
               </div>
             )}
-            <footer className="pagination">
-              <span>
-                Page {filter.page} of{" "}
-                {Math.max(1, Math.ceil(result.total / 25))}
-              </span>
-              <button
-                className="button secondary"
-                disabled={filter.page <= 1 || loading}
-                onClick={() => navigate({ ...filter, page: filter.page - 1 })}
-              >
-                Previous
-              </button>
-              <button
-                className="button secondary"
-                disabled={filter.page * 25 >= result.total || loading}
-                onClick={() => navigate({ ...filter, page: filter.page + 1 })}
-              >
-                Next
-              </button>
-            </footer>
+            {(result.total > 25 || filter.page > 1) && (
+              <Pagination label="Import pages" variant="pages" page={filter.page} pageSize={25}
+                totalPages={Math.max(filter.page, Math.ceil(result.total / 25))}
+                isDisabled={loading} onChange={(page) => navigate({ ...filter, page })} />
+            )}
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

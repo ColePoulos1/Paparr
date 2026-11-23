@@ -1,3 +1,5 @@
+import { Text } from "@astryxdesign/core/Text";
+import { Button } from "@astryxdesign/core/Button";
 import { useEffect, useRef, useState } from "react";
 import { downloadBook } from "../api";
 
@@ -38,19 +40,30 @@ export default function BookDownload({
 
   return (
     <>
-      <button
-        className="text-button library-download"
-        aria-label={kind === "export" ? `Export ${title} for Calibre` : `Download ${title}`}
-        disabled={busy}
+      <Button
+        variant="ghost"
+        size="sm"
+        label={
+          busy
+            ? kind === "export"
+              ? "Preparing export…"
+              : "Verifying download…"
+            : kind === "export"
+              ? "Export for Calibre"
+              : "Download"
+        }
+        aria-label={
+          kind === "export"
+            ? `Export ${title} for Calibre`
+            : `Download ${title}`
+        }
+        isDisabled={busy}
         onClick={() => void download()}
-      >
-        {busy ? (kind === "export" ? "Preparing export…" : "Verifying download…")
-          : (kind === "export" ? "Export for Calibre" : "Download")}
-      </button>
+      />
       {error && (
-        <small className="library-message" role="alert">
+        <Text size="sm" color="secondary" role="alert">
           {error}
-        </small>
+        </Text>
       )}
     </>
   );

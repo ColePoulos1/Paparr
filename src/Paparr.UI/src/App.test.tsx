@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
@@ -55,7 +55,7 @@ describe("Import workspace", () => {
 
     expect(await screen.findByText(preview.relativePath)).toBeVisible();
     expect(screen.getByRole("button", { name: "Approve & import" })).toBeEnabled();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("main")).queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("reports request failures and lets the user retry", async () => {
@@ -67,7 +67,7 @@ describe("Import workspace", () => {
         }),
     );
     render(<App />);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await within(screen.getByRole("main")).findByRole("alert")).toHaveTextContent(
       "Database unavailable",
     );
     expect(screen.getByRole("button", { name: "Try again" })).toBeEnabled();
@@ -115,15 +115,15 @@ describe("Import workspace", () => {
     items = [];
     await user.click(screen.getByRole("button", { name: "Refresh" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Your unsaved changes are preserved here",
-    );
+    const review = screen.getByRole("region", { name: "Import details" });
+    const warning = await within(review).findByText(/Your unsaved changes are preserved here/);
+    expect(warning.closest('[role="status"]')).toBeVisible();
     expect(screen.getByRole("textbox", { name: "Title" })).toHaveValue(
       "My unsaved title",
     );
     expect(
       screen.getByRole("button", { name: "Save metadata choice" }),
-    ).toBeDisabled();
+    ).toHaveAttribute("aria-disabled", "true");
     expect(
       screen.queryByRole("button", { name: "Approve & import" }),
     ).not.toBeInTheDocument();

@@ -1,6 +1,12 @@
+import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Heading } from "@astryxdesign/core/Heading";
 import { useEffect, useState } from "react";
 import { request } from "../api";
 import type { WorkerSnapshot } from "../api";
+import "./OperationsHeader.css";
 import "./WorkerHealth.css";
 import StagingHealth from "./StagingHealth";
 
@@ -19,7 +25,7 @@ const explanations = {
     "The worker is processing a stage. Individual import results are recorded in import history.",
   Idle: "The latest stage finished. The worker will check for more work on its next cycle.",
   Delayed:
-    "No recent stage progress was reported. A large file or slow storage can cause this; check API logs if it continues.",
+    "No recent stage progress was reported. A large file or slow storage can cause this. Check API logs if it continues.",
 };
 
 function date(value: string | null) {
@@ -69,41 +75,34 @@ export default function WorkerHealth() {
 
   return (
     <section className="worker-health" aria-label="Worker status">
-      <header className="page-header">
+      <header className="operations-header">
         <div>
-          <div className="eyebrow">BEHIND YOUR LIBRARY</div>
-          <h1>Worker status</h1>
+          <Heading level={1}>Worker status</Heading>
           <p>See when background work last made progress.</p>
         </div>
-        <button
-          className="button secondary"
-          disabled={loading}
+        <Button
+          label={loading ? "Refreshing…" : "Refresh status"}
+          isDisabled={loading}
           onClick={() => setRefresh((value) => value + 1)}
-        >
-          {loading ? "Refreshing…" : "Refresh status"}
-        </button>
+        />
       </header>
       {error && (
-        <div className="notice error" role="alert">
-          {error}{" "}
-          {snapshot &&
-            "The information below is from the last successful refresh."}
-        </div>
+        <Banner status="error" role="alert" title={error}
+          description={snapshot ? "The information below is from the last successful refresh." : undefined} />
       )}
       {!snapshot && !error && <p role="status">Loading worker status…</p>}
       {snapshot && (
         <>
-          <div className={"worker-summary " + snapshot.state.toLowerCase()}>
+          <Card className="worker-summary" padding={5}>
             <div className="worker-state">
-              <h2>
+              <Heading level={2}>
                 {snapshot.state === "Delayed"
                   ? "Taking longer than expected"
                   : snapshot.state}
-              </h2>
+              </Heading>
               {snapshot.currentStage && (
-                <span>
-                  {stageNames[snapshot.currentStage] ?? snapshot.currentStage}
-                </span>
+                <Badge variant={snapshot.state === "Delayed" ? "warning" : "info"}
+                  label={stageNames[snapshot.currentStage] ?? snapshot.currentStage} />
               )}
             </div>
             <p>{explanations[snapshot.state]}</p>
@@ -124,19 +123,19 @@ export default function WorkerHealth() {
                 </dd>
               </div>
             </dl>
-          </div>
+          </Card>
+          <Heading level={2}>Worker stages</Heading>
           <div className="worker-stages">
             {snapshot.stages.map((stage) => (
               <article
                 key={stage.key}
                 aria-label={stageNames[stage.key] ?? stage.key}
-                className={"worker-stage " + stage.state.toLowerCase()}
+                className="worker-stage"
               >
                 <div className="worker-state">
-                  <h3>{stageNames[stage.key] ?? stage.key}</h3>
-                  <span>
-                    {stage.state === "NotRun" ? "Not run yet" : stage.state}
-                  </span>
+                  <Heading level={3}>{stageNames[stage.key] ?? stage.key}</Heading>
+                  <Badge variant={stage.state === "Failed" ? "error" : stage.state === "Succeeded" ? "success" : stage.state === "Running" ? "info" : "neutral"}
+                    label={stage.state === "NotRun" ? "Not run yet" : stage.state} />
                 </div>
                 <dl>
                   <div>
@@ -160,27 +159,23 @@ export default function WorkerHealth() {
                     </dd>
                   </div>
                 </dl>
-                {stage.error && <p className="worker-error">{stage.error}</p>}
+                {stage.error && <Banner status="error" title={stage.error} />}
               </article>
             ))}
           </div>
           <p className="worker-footnote">
             This view describes the API process serving this request and resets
             when it restarts. A finished stage can include failed imports or
-            cleanup attempts; check each import's history for its result.
+            cleanup attempts. Check each import's history for its result.
             Directory discovery may skip inaccessible folders.
           </p>
         </>
       )}
-      <button
-        className="button secondary"
+      <Button
+        label={showTemporaryFiles ? "Hide temporary file status" : "Show temporary file status"}
         aria-expanded={showTemporaryFiles}
         onClick={() => setShowTemporaryFiles((value) => !value)}
-      >
-        {showTemporaryFiles
-          ? "Hide temporary file status"
-          : "Show temporary file status"}
-      </button>
+      />
       {showTemporaryFiles && <StagingHealth />}
     </section>
   );

@@ -1,7 +1,17 @@
+import { Badge, type BadgeVariant } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { EmptyState } from "@astryxdesign/core/EmptyState";
+import { Heading } from "@astryxdesign/core/Heading";
+import { ProgressBar } from "@astryxdesign/core/ProgressBar";
+import { Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow } from "@astryxdesign/core/Table";
+import { ToggleButton } from "@astryxdesign/core/ToggleButton";
 import { useCallback, useEffect, useState } from "react";
 import { request } from "../api";
 import type { IntegrityStatus, LibraryPage, LibraryAudit } from "../api";
 import type { LatestLibraryAuditDto } from "../generated/types.gen";
+import "./OperationsHeader.css";
 import "./LibraryHealth.css";
 import BookDownload from "./BookDownload";
 import EditionDetails from "./EditionDetails";
@@ -24,6 +34,14 @@ const statusLabels: Record<IntegrityStatus, string> = {
   Missing: "Missing",
   Changed: "Changed",
   Unavailable: "Unavailable",
+};
+
+const statusVariants: Record<IntegrityStatus, BadgeVariant> = {
+  Unchecked: "neutral",
+  Verified: "success",
+  Missing: "error",
+  Changed: "warning",
+  Unavailable: "warning",
 };
 
 function isActive(audit: LibraryAudit | null): boolean {
@@ -144,290 +162,128 @@ export default function LibraryHealth() {
   const totalLibraryBooks = result
     ? Object.values(result.counts).reduce((sum, count) => sum + count, 0)
     : 0;
-  const active = auditIsActive;
-  const progress =
-    audit && audit.totalBooks > 0
-      ? Math.min(
-          100,
-          Math.round((audit.processedBooks / audit.totalBooks) * 100),
-        )
-      : audit?.status === "Completed"
-        ? 100
-        : 0;
 
   return (
     <section className="library-health" aria-labelledby="library-health-title">
-      <header className="page-header library-health-header">
+      <header className="operations-header">
         <div>
-          <div className="eyebrow">YOUR COLLECTION</div>
-          <h1 id="library-health-title">Library health</h1>
-          <p>
-            Check that each book still matches its recorded SHA-256 fingerprint.
-            Integrity scans are read-only and never modify your books.
-          </p>
+          <Heading level={1} id="library-health-title">Library health</Heading>
+          <p>Check each library file against its recorded SHA-256 fingerprint.</p>
         </div>
-        <button
-          className="button primary"
+        <Button
+          label={starting ? "Starting scan…" : auditIsActive ? "Scan in progress" : "Start integrity scan"}
+          variant="primary"
           onClick={() => void startScan()}
-          disabled={starting || active || auditLoading || Boolean(auditError)}
-        >
-          {starting
-            ? "Starting scan…"
-            : active
-              ? "Scan in progress"
-              : "Start integrity scan"}
-        </button>
+          isDisabled={starting || auditIsActive || auditLoading || Boolean(auditError)}
+        />
       </header>
 
-      {auditError && (
-        <div className="notice error" role="alert">
-          {auditError}{" "}
-          <button onClick={() => setAuditRefresh((value) => value + 1)}>
-            Retry
-          </button>
-        </div>
-      )}
+      {auditError && <Banner status="error" role="alert" title={auditError}
+        endContent={<Button label="Retry" onClick={() => setAuditRefresh((value) => value + 1)} />} />}
 
-      <section
-        className="library-audit-card"
-        aria-label="Latest integrity scan"
-      >
-        <div className="library-audit-copy">
-          <span className="tiny-label">LATEST INTEGRITY SCAN</span>
-          {auditLoading ? (
-            <p className="muted" role="status">
-              Loading scan status…
-            </p>
-          ) : audit ? (
-            <>
-              <h2>
-                {audit.status === "Completed"
-                  ? "Scan complete"
-                  : audit.status === "Running"
-                    ? "Checking your books"
-                    : "Scan queued"}
-              </h2>
-              <p className="muted">
-                {audit.status === "Completed"
-                  ? `Finished ${formatDate(audit.completedAt)}. This scan covered ${audit.totalBooks} ${audit.totalBooks === 1 ? "book" : "books"}.`
-                  : `Started ${formatDate(audit.createdAt)}. The scan checks the books present when it began.`}
-              </p>
-            </>
-          ) : (
-            <>
-              <h2>No integrity scan yet</h2>
-              <p className="muted">
-                Start a scan to compare stored fingerprints with your library
-                files.
-              </p>
-            </>
-          )}
+      <Card role="region" aria-label="Latest integrity scan" className="library-audit" padding={5}>
+        <div>
+          <Heading level={2}>
+            {auditLoading ? "Latest integrity scan" : !audit ? "No integrity scan yet"
+              : audit.status === "Completed" ? "Scan complete"
+              : audit.status === "Running" ? "Checking your books" : "Scan queued"}
+          </Heading>
+          {auditLoading ? <p role="status">Loading scan status…</p>
+            : !audit ? <p>A read-only scan verifies the files in your library.</p>
+            : <p>{audit.status === "Completed"
+              ? `Finished ${formatDate(audit.completedAt)}. This scan covered ${audit.totalBooks} ${audit.totalBooks === 1 ? "book" : "books"}.`
+              : `Started ${formatDate(audit.createdAt)}. The scan covers books present when it began.`}</p>}
         </div>
-        {audit && active && (
-          <div
-            className="library-progress"
-            aria-label={`${audit.processedBooks} of ${audit.totalBooks} books checked`}
-          >
-            <div className="library-progress-label">
-              <strong>
-                {audit.processedBooks} of {audit.totalBooks}
-              </strong>
-              <span>{progress}%</span>
+        {audit && auditIsActive && <ProgressBar
+          label={`${audit.processedBooks} of ${audit.totalBooks} books checked`}
+          className="library-progress"
+          max={audit.totalBooks || 1}
+          value={audit.processedBooks}
+          hasValueLabel
+        />}
+        {audit?.status === "Completed" && <div className="library-audit-results" aria-label="Latest scan results">
+          <Badge variant="success" label={`${audit.verifiedBooks} verified`} />
+          <Badge variant="neutral" label={`${audit.missingBooks} missing`} />
+          <Badge variant="neutral" label={`${audit.changedBooks} changed`} />
+          <Badge variant="neutral" label={`${audit.unavailableBooks} unavailable`} />
+        </div>}
+      </Card>
+
+      <div className="library-collection">
+        <Heading level={2}>Library files</Heading>
+        <dl className="library-counts" aria-label="Integrity status counts">
+          <div><dt>Verified</dt><dd>{result?.counts.Verified ?? "—"}</dd></div>
+          <div><dt>Needs attention</dt><dd>{result ? result.counts.Missing + result.counts.Changed + result.counts.Unavailable : "—"}</dd></div>
+          <div><dt>Not checked</dt><dd>{result?.counts.Unchecked ?? "—"}</dd></div>
+        </dl>
+        <div className="library-filters" role="group" aria-label="Filter library by integrity status">
+          {filters.map((filter) => (
+            <ToggleButton
+              key={filter.label}
+              label={filter.value ? `${filter.label}, ${result?.counts[filter.value] ?? 0} books` : filter.label}
+              isPressed={status === filter.value}
+              onPressedChange={() => { setStatus(filter.value); setPage(1); }}
+            >
+              {filter.label}{filter.value && ` · ${result?.counts[filter.value] ?? 0}`}
+            </ToggleButton>
+          ))}
+        </div>
+        {error && <Banner status="error" role="alert" title={error} endContent={<Button label="Retry" onClick={reload} />} />}
+        {loading && <p role="status">Loading library…</p>}
+        {!loading && !error && result && result.items.length === 0 && (
+          <EmptyState
+            headingLevel={3}
+            title={totalLibraryBooks === 0 ? "Your library is empty" : "No books match this filter"}
+            description={totalLibraryBooks === 0 ? "Imported books will appear here with their integrity status." : "Choose another status to see more of your collection."}
+          />
+        )}
+        {!loading && !error && result && result.items.length > 0 && (
+          <>
+            <div className="library-table">
+              <Table aria-label="Library files" verticalAlign="top">
+                <TableHeader><TableRow>
+                  <TableHeaderCell scope="col">Book</TableHeaderCell>
+                  <TableHeaderCell scope="col">Library path</TableHeaderCell>
+                  <TableHeaderCell scope="col">Integrity</TableHeaderCell>
+                  <TableHeaderCell scope="col">Last checked</TableHeaderCell>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {result.items.map((book) => (
+                    <TableRow key={book.id}>
+                      <TableCell>
+                        <div className="library-book">
+                          <strong>{book.title}</strong>
+                          <span>{book.author}</span>
+                          {hasEditionDetails(book.edition) && (
+                            <details><summary>Edition details</summary><EditionDetails edition={book.edition} /></details>
+                          )}
+                          <div className="library-actions">
+                            <BookDownload id={book.id} title={book.title} />
+                            <BookDownload id={book.id} title={book.title} kind="export" />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell><span className="library-field-label" aria-hidden="true">Library path</span><code>{book.relativePath ?? "Path unavailable"}</code></TableCell>
+                      <TableCell>
+                        <span className="library-field-label" aria-hidden="true">Integrity</span>
+                        <Badge variant={statusVariants[book.integrityStatus]} label={statusLabels[book.integrityStatus]} />
+                        {book.message && <p className="library-message">{book.message}</p>}
+                      </TableCell>
+                      <TableCell><span className="library-field-label" aria-hidden="true">Last checked</span>{formatDate(book.checkedAt)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-            <label className="sr-only" htmlFor="library-audit-progress">
-              Integrity scan progress
-            </label>
-            <progress id="library-audit-progress" max={100} value={progress}>
-              {progress}%
-            </progress>
-            <small>
-              Books already in your library are not changed by this scan.
-            </small>
-          </div>
+            <nav className="library-pages" aria-label="Library pages">
+              <span>{result.total} {result.total === 1 ? "book" : "books"}</span>
+              <Button label="Previous" isDisabled={page <= 1 || loading} onClick={() => setPage((value) => value - 1)} />
+              <span aria-live="polite">Page {page} of {totalPages}</span>
+              <Button label="Next" isDisabled={page >= totalPages || loading} onClick={() => setPage((value) => value + 1)} />
+            </nav>
+          </>
         )}
-        {audit?.status === "Completed" && (
-          <div
-            className="library-audit-results"
-            aria-label="Latest scan results"
-          >
-            <span>
-              <strong>{audit.verifiedBooks}</strong> verified
-            </span>
-            <span>
-              <strong>{audit.missingBooks}</strong> missing
-            </span>
-            <span>
-              <strong>{audit.changedBooks}</strong> changed
-            </span>
-            <span>
-              <strong>{audit.unavailableBooks}</strong> unavailable
-            </span>
-          </div>
-        )}
-      </section>
-
-      <div
-        className="stats library-health-stats"
-        aria-label="Integrity status counts"
-      >
-        <div>
-          <span>Verified</span>
-          <strong>{result?.counts.Verified ?? "—"}</strong>
-          <small>Matches recorded fingerprint</small>
-        </div>
-        <div>
-          <span>Needs attention</span>
-          <strong>
-            {result
-              ? result.counts.Missing +
-                result.counts.Changed +
-                result.counts.Unavailable
-              : "—"}
-          </strong>
-          <small>Missing, changed, or unavailable files</small>
-        </div>
-        <div>
-          <span>Not checked</span>
-          <strong>{result?.counts.Unchecked ?? "—"}</strong>
-          <small>Awaiting an integrity scan</small>
-        </div>
       </div>
-
-      <div
-        className="library-filter-row"
-        role="group"
-        aria-label="Filter library by integrity status"
-      >
-        {filters.map((filter) => (
-          <button
-            key={filter.label}
-            type="button"
-            className={
-              status === filter.value
-                ? "library-filter active"
-                : "library-filter"
-            }
-            aria-pressed={status === filter.value}
-            aria-label={
-              filter.value
-                ? `${filter.label}, ${result?.counts[filter.value] ?? 0} books`
-                : filter.label
-            }
-            onClick={() => {
-              setStatus(filter.value);
-              setPage(1);
-            }}
-          >
-            {filter.label}
-            {filter.value && <span>{result?.counts[filter.value] ?? 0}</span>}
-          </button>
-        ))}
-      </div>
-
-      {error && (
-        <div className="notice error" role="alert">
-          {error} <button onClick={reload}>Retry</button>
-        </div>
-      )}
-      {loading && (
-        <div className="library-loading" role="status">
-          Loading library…
-        </div>
-      )}
-      {!loading && !error && result && result.items.length === 0 && (
-        <div className="empty library-empty">
-          <div className="empty-book" aria-hidden="true">
-            ⌕
-          </div>
-          <h2>
-            {totalLibraryBooks === 0
-              ? "Your library is empty"
-              : "No books match this filter"}
-          </h2>
-          <p>
-            {totalLibraryBooks === 0
-              ? "Imported books will appear here with their integrity status."
-              : "Choose another status to see more of your collection."}
-          </p>
-        </div>
-      )}
-      {!loading && !error && result && result.items.length > 0 && (
-        <>
-          <div className="library-table-wrap">
-            <table className="library-table">
-              <thead>
-                <tr>
-                  <th scope="col">Book</th>
-                  <th scope="col">Library path</th>
-                  <th scope="col">Integrity</th>
-                  <th scope="col">Last checked</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.items.map((book) => (
-                  <tr key={book.id}>
-                    <td>
-                      <strong>{book.title}</strong>
-                      <span>{book.author}</span>
-                      {hasEditionDetails(book.edition) && (
-                        <details><summary>Edition details</summary><EditionDetails edition={book.edition} /></details>
-                      )}
-                      <div className="library-actions">
-                        <BookDownload id={book.id} title={book.title} />
-                        <BookDownload id={book.id} title={book.title} kind="export" />
-                      </div>
-                    </td>
-                    <td>
-                      <code title={book.relativePath ?? undefined}>
-                        {book.relativePath ?? "Path unavailable"}
-                      </code>
-                    </td>
-                    <td>
-                      <span
-                        className={`library-status ${book.integrityStatus}`}
-                      >
-                        {statusLabels[book.integrityStatus]}
-                      </span>
-                      {book.message && (
-                        <small className="library-message">
-                          {book.message}
-                        </small>
-                      )}
-                    </td>
-                    <td>{formatDate(book.checkedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <nav className="pagination" aria-label="Library pages">
-            <span>
-              {result.total} {result.total === 1 ? "book" : "books"}
-            </span>
-            <button
-              className="button secondary"
-              disabled={page <= 1 || loading}
-              onClick={() => setPage((value) => value - 1)}
-            >
-              Previous
-            </button>
-            <span aria-live="polite">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              className="button secondary"
-              disabled={page >= totalPages || loading}
-              onClick={() => setPage((value) => value + 1)}
-            >
-              Next
-            </button>
-          </nav>
-        </>
-      )}
-      <p className="library-footnote">
-        A scan snapshots the books in your library when it starts. New imports
-        remain available for the next scan.
-      </p>
     </section>
   );
 }

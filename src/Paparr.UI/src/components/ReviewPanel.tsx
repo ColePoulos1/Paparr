@@ -1,3 +1,13 @@
+import { Badge } from "@astryxdesign/core/Badge";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { Field } from "@astryxdesign/core/Field";
+import { Heading } from "@astryxdesign/core/Heading";
+import { Icon } from "@astryxdesign/core/Icon";
+import { RadioList, RadioListItem } from "@astryxdesign/core/RadioList";
+import { Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import "./ReviewPanel.css";
 import { useEffect, useState } from "react";
 import { labels, request } from "../api";
 import type { ImportJob, Preview } from "../api";
@@ -30,19 +40,28 @@ export default function ReviewPanel({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(job.candidates[0]?.title ?? "");
   const [author, setAuthor] = useState(job.candidates[0]?.author ?? "");
-  const [editionDraft, setEditionDraft] = useState({ isbn: "", publisher: "", year: "", language: "" });
-  const hasEditionDraft = Object.values(editionDraft).some((value) => value !== "");
+  const [editionDraft, setEditionDraft] = useState({
+    isbn: "",
+    publisher: "",
+    year: "",
+    language: "",
+  });
+  const hasEditionDraft = Object.values(editionDraft).some(
+    (value) => value !== "",
+  );
   const candidate =
     job.candidates.find((item) => item.id === candidateId) ?? job.candidates[0];
   const hasDraft = Boolean(
     editing &&
     (title !== (candidate?.title ?? "") ||
-      author !== (candidate?.author ?? "") || hasEditionDraft),
+      author !== (candidate?.author ?? "") ||
+      hasEditionDraft),
   );
   const canReview = job.status === "AwaitingApproval" && !reviewUnavailable;
   const showChoices = canReview || hasDraft;
   const choice = candidate?.id;
-  const currentPreview = preview && preview.candidateId === choice ? preview.data : null;
+  const currentPreview =
+    preview && preview.candidateId === choice ? preview.data : null;
 
   useEffect(() => {
     setPreview(null);
@@ -68,15 +87,21 @@ export default function ReviewPanel({
       job,
       editing &&
         (nextTitle !== (candidate?.title ?? "") ||
-          nextAuthor !== (candidate?.author ?? "") || hasEditionDraft),
+          nextAuthor !== (candidate?.author ?? "") ||
+          hasEditionDraft),
     );
   }
 
   function updateEdition(field: keyof typeof editionDraft, value: string) {
     const updated = { ...editionDraft, [field]: value };
     setEditionDraft(updated);
-    onDraftChange?.(job, editing && (title !== (candidate?.title ?? "") ||
-      author !== (candidate?.author ?? "") || Object.values(updated).some((item) => item !== "")));
+    onDraftChange?.(
+      job,
+      editing &&
+        (title !== (candidate?.title ?? "") ||
+          author !== (candidate?.author ?? "") ||
+          Object.values(updated).some((item) => item !== "")),
+    );
   }
 
   function clearEdition() {
@@ -122,36 +147,62 @@ export default function ReviewPanel({
     onDraftChange?.(job, false);
   }
 
+  const fieldState = { isReadOnly: !canReview, isDisabled: busy };
+  const requiredName = { ...fieldState, required: true, maxLength: 300 };
+
   return (
     <section className="review-panel" aria-label="Import details">
-      <h2>
-        {job.acceptedBook?.title ?? candidate?.title ?? "Give this book a name"}
-      </h2>
-      <div className="panel-heading">
-        <span className="eyebrow">IMPORT #{job.id}</span>
-        <span className={"badge " + job.status}>{labels[job.status]}</span>
-      </div>
-      <p className="muted filename">{job.fileName}</p>
+      <header className="review-intro">
+        <div className="review-kicker">
+          <Text size="sm" color="secondary">
+            Import #{job.id}
+          </Text>
+          <Badge
+            label={labels[job.status]}
+            variant={
+              job.status === "Completed"
+                ? "success"
+                : job.status === "Failed"
+                  ? "error"
+                  : job.status === "AwaitingApproval"
+                    ? "warning"
+                    : "info"
+            }
+          />
+        </div>
+        <Heading level={2}>
+          {job.acceptedBook?.title ??
+            candidate?.title ??
+            "Give this book a name"}
+        </Heading>
+        <Text size="sm" color="secondary">
+          {job.fileName}
+        </Text>
+      </header>
       <FolderProfile profile={job.profile} />
-      {job.lastError && job.status !== "Undoing" && <div className="notice error">{job.lastError}</div>}
-      {error && (
-        <div className="notice error" role="alert">
-          {error}
-        </div>
+      {job.lastError && job.status !== "Undoing" && (
+        <Banner status="error" title={job.lastError} />
       )}
+      {error && <Banner role="alert" status="error" title={error} />}
       {hasDraft && !canReview && (
-        <div className="notice" role="status">
-          {reviewUnavailable
-            ? "This import is no longer in the current results. Your unsaved changes are preserved here, but cannot be saved."
-            : "This import is no longer awaiting review. Your unsaved changes are preserved here, but cannot be saved."}
-        </div>
+        <Banner
+          role="status"
+          status="warning"
+          title={
+            reviewUnavailable
+              ? "This import is no longer in the current results. Your unsaved changes are preserved here, but cannot be saved."
+              : "This import is no longer awaiting review. Your unsaved changes are preserved here, but cannot be saved."
+          }
+        />
       )}
       {showChoices && (
-        <>
-          <div className="section-heading">
-            <h3>Choose the best metadata</h3>
-            <button
-              className="text-button"
+        <section className="review-section" aria-label="Metadata review">
+          <div className="review-section-heading">
+            <Heading level={3}>Metadata choices</Heading>
+            <Button
+              label={editing ? "Cancel edit" : "Edit details"}
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 if (editing) cancelEdit();
                 else {
@@ -162,215 +213,264 @@ export default function ReviewPanel({
                   onDraftChange?.(job, false);
                 }
               }}
-              disabled={busy || (!canReview && !editing)}
-            >
-              {editing ? "Cancel edit" : "Edit details"}
-            </button>
+              isDisabled={busy || (!canReview && !editing)}
+            />
           </div>
           {editing && (
             <form
-              className="edit-form"
+              className="metadata-form"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!canReview || busy) return;
                 void mutate(`/api/imports/${job.id}/metadata`, {
                   title,
                   author,
-                  ...(hasEditionDraft ? { edition: {
-                    isbn: editionDraft.isbn || null,
-                    publisher: editionDraft.publisher || null,
-                    publicationYear: editionDraft.year ? Number(editionDraft.year) : null,
-                    language: editionDraft.language || null,
-                  } } : {}),
+                  ...(hasEditionDraft
+                    ? {
+                        edition: {
+                          isbn: editionDraft.isbn || null,
+                          publisher: editionDraft.publisher || null,
+                          publicationYear: editionDraft.year
+                            ? Number(editionDraft.year)
+                            : null,
+                          language: editionDraft.language || null,
+                        },
+                      }
+                    : {}),
                 });
               }}
             >
-              <label>
-                Title
-                <input
-                  name="title"
+              <div className="metadata-form-grid">
+                <TextInput
+                  {...requiredName}
+                  label="Title"
+                  htmlName="title"
                   value={title}
-                  onChange={(event) => setDraft(event.target.value, author)}
-                  required
-                  maxLength={300}
-                  readOnly={!canReview}
-                  disabled={busy}
+                  onChange={(value) => setDraft(value, author)}
                 />
-              </label>
-              <label>
-                Author
-                <input
-                  name="author"
+                <TextInput
+                  {...requiredName}
+                  label="Author"
+                  htmlName="author"
                   value={author}
-                  onChange={(event) => setDraft(title, event.target.value)}
-                  required
-                  maxLength={300}
-                  readOnly={!canReview}
-                  disabled={busy}
+                  onChange={(value) => setDraft(title, value)}
                 />
-              </label>
-              <p className="muted">Edition details are optional. Provider details are not copied into a new manual choice.</p>
-              <div className="edition-edit-grid">
-                <label>ISBN (optional)<input value={editionDraft.isbn} maxLength={64}
-                  onChange={(event) => updateEdition("isbn", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
-                <label>Publisher (optional)<input value={editionDraft.publisher} maxLength={300}
-                  onChange={(event) => updateEdition("publisher", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
-                <label>Publication year (optional)<input type="number" min={1000} max={9999} step={1} value={editionDraft.year}
-                  onChange={(event) => updateEdition("year", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
-                <label>Language tag (optional)<input value={editionDraft.language} maxLength={35} placeholder="e.g. en-US"
-                  onChange={(event) => updateEdition("language", event.target.value)} readOnly={!canReview} disabled={busy} /></label>
               </div>
-              <button
-                className="button secondary"
-                disabled={!canReview || busy}
-              >
-                Save metadata choice
-              </button>
+              <Text size="sm" color="secondary">
+                Edition details are optional. A manual choice uses only the
+                details you enter.
+              </Text>
+              <div className="metadata-form-grid">
+                <TextInput
+                  {...{ ...fieldState, maxLength: 64 }}
+                  label="ISBN (optional)"
+                  value={editionDraft.isbn}
+                  onChange={(value) => updateEdition("isbn", value)}
+                />
+                <TextInput
+                  {...{ ...fieldState, maxLength: 300 }}
+                  label="Publisher (optional)"
+                  value={editionDraft.publisher}
+                  onChange={(value) => updateEdition("publisher", value)}
+                />
+                <Field
+                  label="Publication year (optional)"
+                  inputID={`year-${job.id}`}
+                >
+                  <input
+                    id={`year-${job.id}`}
+                    className="edition-year"
+                    type="number"
+                    min={1000}
+                    max={9999}
+                    step={1}
+                    value={editionDraft.year}
+                    onChange={(event) =>
+                      updateEdition("year", event.target.value)
+                    }
+                    readOnly={!canReview}
+                    disabled={busy}
+                  />
+                </Field>
+                <TextInput
+                  {...{ ...fieldState, maxLength: 35 }}
+                  label="Language tag (optional)"
+                  value={editionDraft.language}
+                  placeholder="e.g. en-US"
+                  onChange={(value) => updateEdition("language", value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="secondary"
+                label="Save metadata choice"
+                isDisabled={!canReview || busy}
+              />
             </form>
           )}
-          <fieldset className="candidate-list" disabled={!canReview || busy}>
-            <legend className="sr-only">Metadata choices</legend>
-            {job.candidates.map((item) => (
-              <label
-                key={item.id}
-                className={
-                  "candidate " + (candidate?.id === item.id ? "chosen" : "")
-                }
-              >
-                <input
-                  type="radio"
-                  name={"candidate-" + job.id}
-                  checked={candidate?.id === item.id}
-                  onChange={() => {
-                    setCandidateId(item.id);
-                    setTitle(item.title);
-                    setAuthor(item.author);
-                    clearEdition();
-                    setError("");
-                    onDraftChange?.(job, false);
-                    setPreview(null);
-                  }}
-                />
-                <span>
-                  <span className="candidate-top">
-                    <strong>{item.title}</strong>
-                    <small>
-                      {item.source === "manual" ? "Your edit" : item.source}
-                    </small>
-                  </span>
-                  <span className="candidate-author">{item.author}</span>
-                  <span className="evidence">{item.evidence}</span>
-                  <EditionDetails edition={item.edition} />
-                  {item.source !== "manual" && (
-                    <span className="match-score">
-                      Match score · {Math.round(item.confidenceScore)}/100
+          {job.candidates.length > 0 ? (
+            <RadioList
+              label="Metadata choices"
+              isLabelHidden
+              htmlName={"candidate-" + job.id}
+              value={String(candidate?.id)}
+              isDisabled={!canReview || busy}
+              onChange={(value) => {
+                const item = job.candidates.find(
+                  (option) => String(option.id) === value,
+                );
+                if (!item) return;
+                setCandidateId(item.id);
+                setTitle(item.title);
+                setAuthor(item.author);
+                clearEdition();
+                setError("");
+                onDraftChange?.(job, false);
+                setPreview(null);
+              }}
+            >
+              {job.candidates.map((item) => (
+                <RadioListItem
+                  key={item.id}
+                  value={String(item.id)}
+                  align="start"
+                  className="review-choice"
+                  label={
+                    <span className="choice-heading">
+                      <strong>{item.title}</strong>
+                      <Badge
+                        label={
+                          item.source === "manual" ? "Your edit" : item.source
+                        }
+                      />
                     </span>
-                  )}
-                </span>
-              </label>
-            ))}
-          </fieldset>
-          {job.candidates.some((item) => hasEditionDetails(item.edition)) && (
-            <p className="muted edition-note">
-              Compare edition details before approving. An ISBN checksum validates the number,
-              but does not confirm that it belongs to this file.
-            </p>
-          )}
-          {job.candidates.length === 0 && (
-            <p className="muted">
+                  }
+                  description={
+                    <span className="choice-description">
+                      <Text>{item.author}</Text>
+                      <Text size="sm" color="secondary">
+                        {item.evidence}
+                      </Text>
+                      <EditionDetails edition={item.edition} />
+                      {item.source !== "manual" && (
+                        <Text size="sm" weight="semibold">
+                          Match score · {Math.round(item.confidenceScore)}/100
+                        </Text>
+                      )}
+                    </span>
+                  }
+                />
+              ))}
+            </RadioList>
+          ) : (
+            <Text color="secondary">
               No complete metadata was found. Add a title and author using Edit
               details.
-            </p>
+            </Text>
+          )}
+          {job.candidates.some((item) => hasEditionDetails(item.edition)) && (
+            <Text size="sm" color="secondary">
+              Compare edition details before approving. An ISBN checksum
+              validates the number, but does not confirm that it belongs to this
+              file.
+            </Text>
           )}
           {currentPreview && (
-            <div className="destination">
-              <span className="tiny-label">DESTINATION PREVIEW</span>
+            <div className="review-destination">
+              <Heading level={4}>Destination preview</Heading>
               <code>{currentPreview.relativePath}</code>
-              <small>
+              <Text size="sm" color="secondary">
                 {currentPreview.destinationExists
                   ? "An existing file will be verified before completing this import. "
                   : ""}
                 {currentPreview.sourceRetained
                   ? "The original file will be retained."
                   : "The original is removed only after verified import completion."}
-              </small>
+              </Text>
             </div>
           )}
           {canReview && (
-            <button
-              className="button primary import-button"
-              disabled={busy || !candidate || !currentPreview}
+            <Button
+              label={busy ? "Saving…" : "Approve & import"}
+              variant="primary"
+              icon={<Icon icon="check" />}
+              isDisabled={busy || !candidate || !currentPreview}
               onClick={() =>
                 void mutate(`/api/imports/${job.id}/accept/${candidate?.id}`)
               }
-            >
-              {busy ? "Saving…" : "Approve & import"}
-            </button>
+            />
           )}
-        </>
+        </section>
       )}
       {job.status === "Failed" && (
-        <button
-          className="button primary"
-          disabled={busy}
+        <Button
+          label={busy ? "Queuing…" : "Retry import"}
+          variant="primary"
+          isDisabled={busy}
           onClick={() => void mutate(`/api/imports/${job.id}/retry`)}
-        >
-          {busy ? "Queuing…" : "Retry import"}
-        </button>
+        />
       )}
       {job.acceptedBook && (
-        <div className="destination">
-          <span className="tiny-label">IN YOUR LIBRARY</span>
-          <strong>{job.acceptedBook.author}</strong>
+        <section className="review-destination">
+          <Heading level={3}>In your library</Heading>
+          <Text weight="semibold">{job.acceptedBook.author}</Text>
           <EditionDetails edition={job.acceptedBook.edition} />
-          <small>
+          <Text size="sm">
             Imported {new Date(job.acceptedBook.importedAt).toLocaleString()} ·{" "}
             {job.acceptedBook.source}
-          </small>
-          <small>
-            Source cleanup: {job.status === "Undoing" ? "Paused during undo" : {
-              NotRequested: "Original retained",
-              Pending: "Source cleanup queued",
-              Completed: "Source cleanup completed",
-              Retained: "Source cleanup needs attention",
-            }[job.cleanup.status]} · {job.cleanup.attemptCount}{" "}
+          </Text>
+          <Text size="sm">
+            Source cleanup:{" "}
+            {job.status === "Undoing"
+              ? "Paused during undo"
+              : {
+                  NotRequested: "Original retained",
+                  Pending: "Source cleanup queued",
+                  Completed: "Source cleanup completed",
+                  Retained: "Source cleanup needs attention",
+                }[job.cleanup.status]}{" "}
+            · {job.cleanup.attemptCount}{" "}
             {job.cleanup.attemptCount === 1 ? "attempt" : "attempts"}
             {job.cleanup.error ? ` · ${job.cleanup.error}` : ""}
-          </small>
+          </Text>
           {job.cleanup.canRetry && (
-            <button
-              className="button secondary"
-              disabled={busy}
+            <Button
+              variant="secondary"
+              label={busy ? "Retrying…" : "Retry source cleanup"}
+              isDisabled={busy}
               onClick={() =>
                 void mutate(`/api/imports/${job.id}/cleanup/retry`)
               }
-            >
-              {busy ? "Retrying…" : "Retry source cleanup"}
-            </button>
+            />
           )}
-        </div>
+        </section>
       )}
-      {(job.status === "Completed" || job.status === "Undoing") && <UndoImport job={job} onChange={onChange} disabled={busy} />}
+      {(job.status === "Completed" || job.status === "Undoing") && (
+        <UndoImport job={job} onChange={onChange} disabled={busy} />
+      )}
       <DuplicateSources jobId={job.id} />
-      <div className="section-heading timeline-heading">
-        <h3>Import history</h3>
-        <small>
-          {job.attemptCount} {job.attemptCount === 1 ? "attempt" : "attempts"}
-        </small>
-      </div>
-      <ol className="timeline">
-        {job.events.map((event, index) => (
-          <li key={index}>
-            <span>{event.message}</span>
-            <time dateTime={event.createdAt}>
-              {new Date(event.createdAt).toLocaleString()}
-            </time>
-          </li>
-        ))}
-      </ol>
-      {job.events.length === 0 && (
-        <p className="muted">No recorded events for this import.</p>
-      )}
+      <section className="review-section" aria-label="Import history">
+        <div className="review-section-heading">
+          <Heading level={3}>Import history</Heading>
+          <Text size="sm" color="secondary">
+            {job.attemptCount} {job.attemptCount === 1 ? "attempt" : "attempts"}
+          </Text>
+        </div>
+        {job.events.length ? (
+          <ol className="review-history">
+            {job.events.map((event, index) => (
+              <li key={index}>
+                <Text>{event.message}</Text>
+                <time dateTime={event.createdAt}>
+                  {new Date(event.createdAt).toLocaleString()}
+                </time>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <Text color="secondary">No recorded events for this import.</Text>
+        )}
+      </section>
     </section>
   );
 }
